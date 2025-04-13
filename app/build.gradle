@@ -1,0 +1,48 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+project.ext.lwjglVersion = "3.3.3"
+project.ext.lwjglNatives = "natives-windows"
+
+dependencies {
+    // LWJGL core modules
+    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-assimp"
+    implementation "org.lwjgl:lwjgl-glfw"
+    implementation "org.lwjgl:lwjgl-opengl"
+    implementation "org.lwjgl:lwjgl-stb"
+
+    // LWJGL native libraries for Windows
+    runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-assimp::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-stb::$lwjglNatives"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+application {
+    mainClass = 'mystuff.game.Game'
+}
+
+tasks.withType(Test).configureEach {
+    enabled = false
+}
+
+run {
+    // Enable OpenGL debug output
+    systemProperty "org.lwjgl.util.Debug", "true"
+    // Enable LWJGL debug mode
+    systemProperty "org.lwjgl.util.DebugLoader", "true"
+}
