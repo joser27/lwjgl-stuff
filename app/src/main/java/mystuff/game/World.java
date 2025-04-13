@@ -2,8 +2,6 @@ package mystuff.game;
 
 import org.lwjgl.opengl.GL11;
 import mystuff.utils.Shapes;
-import java.util.ArrayList;
-import java.util.List;
 
 public class World {
     // World constants
@@ -11,32 +9,28 @@ public class World {
     public static final int CHUNK_SIZE = 16;  // Size of a chunk in blocks
     public static final int WORLD_SIZE = 8;   // World size in chunks
     
-    private List<Block> blocks;
+    private Block[][][] blocks;
+    private final int worldSizeInBlocks;
 
     public World() {
-        blocks = new ArrayList<>();
+        worldSizeInBlocks = CHUNK_SIZE * WORLD_SIZE;
+        blocks = new Block[worldSizeInBlocks][worldSizeInBlocks][worldSizeInBlocks];
         generateWorld();
     }
 
     private void generateWorld() {
         // Create a flat ground plane of blocks
-        int worldSizeInBlocks = CHUNK_SIZE * WORLD_SIZE;
-        
-        // Start from 0,0,0 and extend in positive directions
         for(int x = 0; x < worldSizeInBlocks; x++) {
             for(int z = 0; z < worldSizeInBlocks; z++) {
                 // Convert grid coordinates to world coordinates
                 float worldX = x * BLOCK_SIZE;
                 float worldZ = z * BLOCK_SIZE;
                 
-                // Create ground blocks
-                blocks.add(new Block(worldX, -BLOCK_SIZE, worldZ));
-                
-                // Create border walls
-                if(x == 0 || x == worldSizeInBlocks-1 || z == 0 || z == worldSizeInBlocks-1) {
-                    for(int y = 0; y < 4; y++) { // 4 blocks high walls
-                        blocks.add(new Block(worldX, y * BLOCK_SIZE, worldZ));
-                    }
+                // Place ground at y=0 instead of -BLOCK_SIZE
+                if((x + z) % 2 == 0) {
+                    blocks[x][0][z] = new Block(worldX, 0, worldZ, BlockType.DIRT);
+                } else {
+                    blocks[x][0][z] = new Block(worldX, 0, worldZ, BlockType.GRASS);
                 }
             }
         }
@@ -44,94 +38,70 @@ public class World {
 
     public void render() {
         // Render blocks
-        for(Block block : blocks) {
-            block.render();
+        for(int x = 0; x < worldSizeInBlocks; x++) {
+            for(int y = 0; y < worldSizeInBlocks; y++) {
+                for(int z = 0; z < worldSizeInBlocks; z++) {
+                    Block block = blocks[x][y][z];
+                    if(block != null) {
+                        block.render();
+                    }
+                }
+            }
         }
-        
-        // Render grid
-        renderGrid();
     }
 
-    private void renderGrid() {
-        int worldSizeInBlocks = CHUNK_SIZE * WORLD_SIZE;
-        float worldSize = worldSizeInBlocks * BLOCK_SIZE;
-        
-        GL11.glPushMatrix();
-        
-        // Set grid color (white, semi-transparent)
-        GL11.glColor4f(1.0f, 1.0f, 1.0f, 0.2f);
-        
-        // Enable blending for transparency
-        GL11.glEnable(GL11.GL_BLEND);
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        
-        // Disable depth testing temporarily for grid lines
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
-        
-        // Draw X grid lines
-        GL11.glBegin(GL11.GL_LINES);
-        for(int i = 0; i <= worldSizeInBlocks; i++) {
-            float x = i * BLOCK_SIZE;
-            GL11.glVertex3f(x, 0, 0);
-            GL11.glVertex3f(x, 0, worldSize);
-        }
-        GL11.glEnd();
-        
-        // Draw Z grid lines
-        GL11.glBegin(GL11.GL_LINES);
-        for(int i = 0; i <= worldSizeInBlocks; i++) {
-            float z = i * BLOCK_SIZE;
-            GL11.glVertex3f(0, 0, z);
-            GL11.glVertex3f(worldSize, 0, z);
-        }
-        GL11.glEnd();
-        
-        // Draw origin marker (red lines)
-        GL11.glColor3f(1.0f, 0.0f, 0.0f);
-        GL11.glBegin(GL11.GL_LINES);
-        // X axis
-        GL11.glVertex3f(0, 0, 0);
-        GL11.glVertex3f(BLOCK_SIZE, 0, 0);
-        // Y axis
-        GL11.glVertex3f(0, 0, 0);
-        GL11.glVertex3f(0, BLOCK_SIZE, 0);
-        // Z axis
-        GL11.glVertex3f(0, 0, 0);
-        GL11.glVertex3f(0, 0, BLOCK_SIZE);
-        GL11.glEnd();
-        
-        // Restore OpenGL state
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
-        
-        GL11.glPopMatrix();
-    }
-}
-
-class Block {
-    private float x, y, z;
-    private float size;
-
-    public Block(float x, float y, float z) {
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.size = World.BLOCK_SIZE / 2.0f; // Half size because our cube method uses half-extents
+    // Convert world coordinates to grid coordinates
+    public int[] worldToGridCoords(float x, float y, float z) {
+        return new int[] {
+            Math.max(0, Math.min(worldSizeInBlocks - 1, (int) Math.floor(x / BLOCK_SIZE))),
+            Math.max(0, Math.min(worldSizeInBlocks - 1, (int) Math.floor(y / BLOCK_SIZE))),
+            Math.max(0, Math.min(worldSizeInBlocks - 1, (int) Math.floor(z / BLOCK_SIZE)))
+        };
     }
 
-    public void render() {
-        GL11.glPushMatrix();
-        GL11.glTranslatef(x, y, z);
+    // Check if a point is inside the world bounds
+    public boolean isInBounds(int x, int y, int z) {
+        return x >= 0 && x < worldSizeInBlocks &&
+               y >= 0 && y < worldSizeInBlocks &&
+               z >= 0 && z < worldSizeInBlocks;
+    }
+
+    // Get block at grid coordinates
+    public Block getBlockAt(int x, int y, int z) {
+        if (!isInBounds(x, y, z)) return null;
+        return blocks[x][y][z];
+    }
+
+    // Get block at world coordinates
+    public Block getBlockAtWorldCoords(float x, float y, float z) {
+        int[] gridCoords = worldToGridCoords(x, y, z);
+        return getBlockAt(gridCoords[0], gridCoords[1], gridCoords[2]);
+    }
+
+    // Check if a point collides with any block
+    public boolean checkCollision(float x, float y, float z) {
+        int[] gridCoords = worldToGridCoords(x, y, z);
+        Block block = getBlockAt(gridCoords[0], gridCoords[1], gridCoords[2]);
+        return block != null && block.getType() != BlockType.AIR;
+    }
+
+    // Check if a box (player) collides with any blocks
+    public boolean checkBoxCollision(float x, float y, float z, float width, float height, float depth) {
+        // Get grid coordinates for the box bounds
+        int[] minGrid = worldToGridCoords(x - width/2, y - height/2, z - depth/2);
+        int[] maxGrid = worldToGridCoords(x + width/2, y + height/2, z + depth/2);
         
-        // Set block color (different colors based on height for variety)
-        if(y < 0) {
-            GL11.glColor3f(0.5f, 0.35f, 0.05f); // Brown for ground
-        } else {
-            GL11.glColor3f(0.7f, 0.7f, 0.7f); // Gray for walls
+        // Check all blocks in the box's bounds
+        for (int gridX = minGrid[0]; gridX <= maxGrid[0]; gridX++) {
+            for (int gridY = minGrid[1]; gridY <= maxGrid[1]; gridY++) {
+                for (int gridZ = minGrid[2]; gridZ <= maxGrid[2]; gridZ++) {
+                    Block block = getBlockAt(gridX, gridY, gridZ);
+                    if (block != null && block.getType() != BlockType.AIR) {
+                        return true;
+                    }
+                }
+            }
         }
-        
-        Shapes.cube(size);
-        
-        GL11.glPopMatrix();
+        return false;
     }
 }

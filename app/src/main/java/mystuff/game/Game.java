@@ -4,18 +4,31 @@ import mystuff.engine.Window;
 import mystuff.engine.Camera;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
+import mystuff.game.BlockType;
 
 public class Game {
     private Window window;
     private Camera camera;
     private Player player;
     private World world;
+    private Block stoneBlock;
+    private long lastFpsTime;
+    private int fps;
+    private int fpsCount;
+    private long lastFrameTime;
+    private float deltaTime;
 
     public Game() {
         window = new Window("3D Game", 1920, 1080);
         camera = new Camera(0, 0, 0);  // Camera starts at origin
-        player = new Player(0, World.BLOCK_SIZE, 0, camera);  // Pass camera to player
         world = new World();
+        player = new Player(0, 10 * World.BLOCK_SIZE, 0, camera, world); 
+        stoneBlock = new Block(3.0f, 3.0f, 3.0f, BlockType.STONE);
+        lastFpsTime = System.currentTimeMillis();
+        lastFrameTime = System.nanoTime();
+        fps = 0;
+        fpsCount = 0;
+        deltaTime = 0;
     }
 
     public void run() {
@@ -41,8 +54,14 @@ public class Game {
 
     private void loop() {
         while (!window.shouldClose()) {
+            // Update delta time
+            updateDeltaTime();
+
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             GL11.glLoadIdentity();
+
+            // Update FPS counter
+            updateFPS();
 
             // Check for escape key
             if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_ESCAPE) == GLFW.GLFW_PRESS) {
@@ -50,7 +69,7 @@ public class Game {
             }
 
             // Update and render game objects
-            player.update(window);  // Player now handles movement
+            player.update(window, deltaTime);  // Pass deltaTime to player update
             
             // Clear transformation matrix
             GL11.glLoadIdentity();
@@ -67,6 +86,7 @@ public class Game {
             
             // Then render the player (currently disabled for first-person)
             player.render();
+            stoneBlock.render();
 
             // Switch to orthographic projection for 2D rendering
             GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -80,6 +100,14 @@ public class Game {
 
             // Disable depth testing for 2D rendering
             GL11.glDisable(GL11.GL_DEPTH_TEST);
+
+            // Render FPS counter in top right
+            GL11.glColor3f(1.0f, 1.0f, 1.0f);  // White text
+            GL11.glPushMatrix();
+            GL11.glTranslatef(window.getWidth() - 150, 30, 0);  // Position in top right
+            GL11.glScalef(1.0f, -1.0f, 1.0f);  // Flip text vertically
+            renderText(String.format("FPS: %d", fps), 0, 0);
+            GL11.glPopMatrix();
 
             // Render player position text
             GL11.glColor3f(1.0f, 1.0f, 1.0f);  // White text
@@ -286,6 +314,23 @@ public class Game {
         GL11.glVertex2f(30, 0);
         GL11.glVertex2f(30, 50);
         GL11.glEnd();
+    }
+
+    private void updateFPS() {
+        fpsCount++;
+        
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFpsTime > 1000) {  // Update every second
+            fps = fpsCount;
+            fpsCount = 0;
+            lastFpsTime = currentTime;
+        }
+    }
+
+    private void updateDeltaTime() {
+        long currentTime = System.nanoTime();
+        deltaTime = (currentTime - lastFrameTime) / 1_000_000_000.0f; // Convert nanoseconds to seconds
+        lastFrameTime = currentTime;
     }
 
     public static void main(String[] args) {

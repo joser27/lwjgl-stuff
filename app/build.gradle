@@ -36,10 +36,6 @@ application {
     mainClass = 'mystuff.game.Game'
 }
 
-tasks.withType(Test).configureEach {
-    enabled = false
-}
-
 run {
     // Enable OpenGL debug output
     systemProperty "org.lwjgl.util.Debug", "true"

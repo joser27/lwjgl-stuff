@@ -15,7 +15,7 @@ public abstract class GameObject {
         this.scale = 1;
     }
 
-    public abstract void update(Window window);
+    public abstract void update(Window window, float deltaTime);
     public abstract void render();
 
     public void setPosition(float x, float y, float z) {
