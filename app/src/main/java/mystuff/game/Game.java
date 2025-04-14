@@ -43,7 +43,7 @@ public class Game {
         
         // Initialize world and player after OpenGL context is created
         world = new World();
-        player = new Player(3, 10 * World.BLOCK_SIZE, 3, camera, world);
+        player = new Player(3, 20 * World.BLOCK_SIZE, 3, camera, world);
         
         // Try to load the dirt texture
         System.out.println("Loading dirt texture...");
@@ -58,6 +58,9 @@ public class Game {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         }
+
+        // Initialize font
+        mystuff.utils.FontLoader.init("resources/fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
         
         // Set up mouse cursor
         GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
@@ -108,7 +111,7 @@ public class Game {
                 GLFW.glfwSetWindowShouldClose(window.getWindowHandle(), true);
             }
 
-            // Render FPS counter (in 2D)
+            // Render FPS counter and debug info (in 2D)
             GL11.glDisable(GL11.GL_DEPTH_TEST);
             GL11.glMatrixMode(GL11.GL_PROJECTION);
             GL11.glPushMatrix();
@@ -118,8 +121,12 @@ public class Game {
             GL11.glPushMatrix();
             GL11.glLoadIdentity();
             
-            GL11.glColor3f(1.0f, 1.0f, 1.0f);  // White text
+            // Render FPS counter
             renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
+            
+            // Render position info
+            renderText(String.format("Position: %.2f, %.2f, %.2f", 
+                camera.getX(), camera.getY(), camera.getZ()), 10, 30);
             
             GL11.glPopMatrix();
             GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -134,190 +141,15 @@ public class Game {
     }
 
     private void cleanup() {
-        // Clean up textures
+        // Clean up textures and font
         mystuff.utils.TextureLoader.cleanup();
+        mystuff.utils.FontLoader.cleanup();
         window.cleanup();
     }
 
     private void renderText(String text, int x, int y) {
-        // Save current state
-        GL11.glPushMatrix();
-        GL11.glTranslatef(x, y, 0);
-        GL11.glScalef(0.5f, 0.5f, 1.0f);  // Increased scale from 0.15 to 0.5
-
-        // Render each character
-        for (char c : text.toCharArray()) {
-            GL11.glLineWidth(2.0f);  // Make the lines thicker for better visibility
-            switch(c) {
-                case '.': renderDot(); break;
-                case ',': renderComma(); break;
-                case '-': renderMinus(); break;
-                case ' ': GL11.glTranslatef(20, 0, 0); break;
-                default: 
-                    if (Character.isDigit(c)) {
-                        renderDigit(c - '0');
-                    } else if (c == 'P') {
-                        renderP();
-                    } else if (c == 'o') {
-                        renderO();
-                    } else if (c == 's') {
-                        renderS();
-                    } else if (c == 'i') {
-                        renderI();
-                    } else if (c == 't') {
-                        renderT();
-                    } else if (c == 'n') {
-                        renderN();
-                    }
-                    GL11.glTranslatef(40, 0, 0);  // Move to next character position
-            }
-        }
-        
-        GL11.glPopMatrix();
-    }
-
-    // Simple vector font rendering methods
-    private void renderDigit(int digit) {
-        GL11.glBegin(GL11.GL_LINES);
-        switch(digit) {
-            case 0:
-                GL11.glVertex2f(0, 0); GL11.glVertex2f(30, 0);
-                GL11.glVertex2f(30, 0); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(0, 50);
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(0, 0);
-                break;
-            case 1:
-                GL11.glVertex2f(15, 0); GL11.glVertex2f(15, 50);
-                break;
-            case 2:
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(30, 25);
-                GL11.glVertex2f(30, 25); GL11.glVertex2f(0, 25);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(0, 0);
-                GL11.glVertex2f(0, 0); GL11.glVertex2f(30, 0);
-                break;
-            case 3:
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(30, 0);
-                GL11.glVertex2f(30, 0); GL11.glVertex2f(0, 0);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(30, 25);
-                break;
-            case 4:
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(0, 25);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(30, 25);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(30, 0);
-                break;
-            case 5:
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(0, 50);
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(0, 25);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(30, 25);
-                GL11.glVertex2f(30, 25); GL11.glVertex2f(30, 0);
-                GL11.glVertex2f(30, 0); GL11.glVertex2f(0, 0);
-                break;
-            case 6:
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(0, 50);
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(0, 0);
-                GL11.glVertex2f(0, 0); GL11.glVertex2f(30, 0);
-                GL11.glVertex2f(30, 0); GL11.glVertex2f(30, 25);
-                GL11.glVertex2f(30, 25); GL11.glVertex2f(0, 25);
-                break;
-            case 7:
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(30, 0);
-                break;
-            case 8:
-                GL11.glVertex2f(0, 0); GL11.glVertex2f(30, 0);
-                GL11.glVertex2f(30, 0); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(0, 50);
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(0, 0);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(30, 25);
-                break;
-            case 9:
-                GL11.glVertex2f(30, 25); GL11.glVertex2f(0, 25);
-                GL11.glVertex2f(0, 25); GL11.glVertex2f(0, 50);
-                GL11.glVertex2f(0, 50); GL11.glVertex2f(30, 50);
-                GL11.glVertex2f(30, 50); GL11.glVertex2f(30, 0);
-                break;
-        }
-        GL11.glEnd();
-    }
-
-    private void renderDot() {
-        GL11.glPointSize(4.0f);
-        GL11.glBegin(GL11.GL_POINTS);
-        GL11.glVertex2f(5, 0);
-        GL11.glEnd();
-        GL11.glTranslatef(10, 0, 0);
-    }
-
-    private void renderComma() {
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex2f(5, 0);
-        GL11.glVertex2f(5, -10);
-        GL11.glEnd();
-        GL11.glTranslatef(10, 0, 0);
-    }
-
-    private void renderMinus() {
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex2f(0, 25);
-        GL11.glVertex2f(30, 25);
-        GL11.glEnd();
-    }
-
-    private void renderP() {
-        GL11.glBegin(GL11.GL_LINE_STRIP);
-        GL11.glVertex2f(0, 0);
-        GL11.glVertex2f(0, 50);
-        GL11.glVertex2f(30, 50);
-        GL11.glVertex2f(30, 25);
-        GL11.glVertex2f(0, 25);
-        GL11.glEnd();
-    }
-
-    private void renderO() {
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        GL11.glVertex2f(0, 0);
-        GL11.glVertex2f(30, 0);
-        GL11.glVertex2f(30, 50);
-        GL11.glVertex2f(0, 50);
-        GL11.glEnd();
-    }
-
-    private void renderS() {
-        GL11.glBegin(GL11.GL_LINE_STRIP);
-        GL11.glVertex2f(30, 50);
-        GL11.glVertex2f(0, 50);
-        GL11.glVertex2f(0, 25);
-        GL11.glVertex2f(30, 25);
-        GL11.glVertex2f(30, 0);
-        GL11.glVertex2f(0, 0);
-        GL11.glEnd();
-    }
-
-    private void renderI() {
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex2f(15, 0);
-        GL11.glVertex2f(15, 50);
-        GL11.glEnd();
-    }
-
-    private void renderT() {
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex2f(0, 50);
-        GL11.glVertex2f(30, 50);
-        GL11.glVertex2f(15, 50);
-        GL11.glVertex2f(15, 0);
-        GL11.glEnd();
-    }
-
-    private void renderN() {
-        GL11.glBegin(GL11.GL_LINE_STRIP);
-        GL11.glVertex2f(0, 0);
-        GL11.glVertex2f(0, 50);
-        GL11.glVertex2f(30, 0);
-        GL11.glVertex2f(30, 50);
-        GL11.glEnd();
+        // Use our new FontLoader to render text
+        mystuff.utils.FontLoader.renderText(text, x, y);
     }
 
     private void updateFPS() {

@@ -37,6 +37,8 @@ public class Block {
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, dirtTexture);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded dirt texture with ID: " + dirtTexture);
                 }
@@ -47,6 +49,8 @@ public class Block {
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, stoneTexture);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded stone texture with ID: " + stoneTexture);
                 }
@@ -57,6 +61,8 @@ public class Block {
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, grassTexture);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+                    GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded grass texture with ID: " + grassTexture);
                 }
@@ -81,9 +87,13 @@ public class Block {
 
         // Save current OpenGL state
         GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         
         // Move to block position
         GL11.glTranslatef(x, y, z);
+
+        // Enable texturing
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
 
         // Bind appropriate texture based on block type
         int textureID = -1;
@@ -99,11 +109,11 @@ public class Block {
                 break;
         }
 
-        boolean useTexture = textureID != -1;
-        if (useTexture) {
-            TextureLoader.bindTexture(textureID);
-            // Set color to white to show texture's true colors
-            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        // Set color to white to show texture's true colors
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+        if (textureID != -1) {
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
         } else {
             // Fallback colors if texture loading failed
             switch (type) {
@@ -123,86 +133,81 @@ public class Block {
 
         // Front face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(-size, -size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(size, -size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(size, size, size);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(-size, size, size);
         GL11.glEnd();
 
         // Back face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(-size, -size, -size);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(-size, size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(size, size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(size, -size, -size);
         GL11.glEnd();
 
         // Top face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(-size, size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(-size, size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(size, size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(size, size, -size);
         GL11.glEnd();
 
         // Bottom face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(-size, -size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(size, -size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(size, -size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(-size, -size, size);
         GL11.glEnd();
 
         // Right face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(size, -size, -size);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(size, size, -size);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(size, size, size);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(size, -size, size);
         GL11.glEnd();
 
         // Left face
         GL11.glBegin(GL11.GL_QUADS);
-        if (useTexture) GL11.glTexCoord2f(0, 0);
+        GL11.glTexCoord2f(0, 0);
         GL11.glVertex3f(-size, -size, -size);
-        if (useTexture) GL11.glTexCoord2f(1, 0);
+        GL11.glTexCoord2f(1, 0);
         GL11.glVertex3f(-size, -size, size);
-        if (useTexture) GL11.glTexCoord2f(1, 1);
+        GL11.glTexCoord2f(1, 1);
         GL11.glVertex3f(-size, size, size);
-        if (useTexture) GL11.glTexCoord2f(0, 1);
+        GL11.glTexCoord2f(0, 1);
         GL11.glVertex3f(-size, size, -size);
         GL11.glEnd();
 
-        // Reset color and texture state
-        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        if (useTexture) {
-            TextureLoader.unbindTexture();
-        }
-
         // Restore OpenGL state
+        GL11.glPopAttrib();
         GL11.glPopMatrix();
         
-        boolean debugMode = true; // You could make this a field or get it from somewhere else
+        boolean debugMode = true; 
         if (debugMode && type != BlockType.AIR) {
             GL11.glPushMatrix();
             GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());

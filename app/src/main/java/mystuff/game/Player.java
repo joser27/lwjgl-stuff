@@ -16,7 +16,7 @@ public class Player extends GameObject {
     private boolean firstMouse = true;
     private float lastX = 400, lastY = 300;
     private float velocity = 0.0f;
-    private float gravity = -10.0f;
+    private float gravity = -20.0f;
     private World world;  // Reference to the world
     private boolean isOnGround = false;
     private float jumpForce = 10.0f;  // Increased jump force
