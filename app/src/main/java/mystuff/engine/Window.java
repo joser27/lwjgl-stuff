@@ -29,9 +29,14 @@ public class Window {
 
         // Configure window hints
         GLFW.glfwDefaultWindowHints();
-        GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE); // Hide window until we position it
+        GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
         GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
-
+        
+        // Use OpenGL 2.1 for maximum compatibility
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
+        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_ANY_PROFILE);
+        
         // Create the window
         windowHandle = GLFW.glfwCreateWindow(width, height, title, MemoryUtil.NULL, MemoryUtil.NULL);
         
@@ -43,23 +48,40 @@ public class Window {
         long primaryMonitor = GLFW.glfwGetPrimaryMonitor();
         org.lwjgl.glfw.GLFWVidMode vidmode = GLFW.glfwGetVideoMode(primaryMonitor);
         if (vidmode != null) {
-            // Center horizontally, position 50 pixels from top
             GLFW.glfwSetWindowPos(
                 windowHandle,
                 (vidmode.width() - width) / 2,
-                50  // Fixed distance from top of screen
+                50
             );
         }
 
+        // Make the OpenGL context current
+        GLFW.glfwMakeContextCurrent(windowHandle);
+        
+        // Enable v-sync
+        GLFW.glfwSwapInterval(1);
+        
         // Make the window visible
         GLFW.glfwShowWindow(windowHandle);
 
-        GLFW.glfwMakeContextCurrent(windowHandle);
+        // Initialize OpenGL capabilities
         GL.createCapabilities();
 
-        // Enable depth testing
+        // Print OpenGL version and capabilities
+        System.out.println("OpenGL Version: " + GL11.glGetString(GL11.GL_VERSION));
+        System.out.println("OpenGL Vendor: " + GL11.glGetString(GL11.GL_VENDOR));
+        System.out.println("OpenGL Renderer: " + GL11.glGetString(GL11.GL_RENDERER));
+        System.out.println("OpenGL Extensions: " + GL11.glGetString(GL11.GL_EXTENSIONS));
+
+        // Set up initial OpenGL state
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glEnable(GL11.GL_CULL_FACE);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Clear color and depth buffer
+        GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        GL11.glClearDepth(1.0);
         
         setupProjection();
     }
