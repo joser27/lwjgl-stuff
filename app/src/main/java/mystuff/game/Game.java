@@ -23,7 +23,6 @@ public class Game {
         camera = new Camera(0, 0, 0);  // Camera starts at origin
         world = new World();
         player = new Player(3, 10 * World.BLOCK_SIZE, 3, camera, world); 
-        stoneBlock = new Block(3.0f, 5.0f, 3.0f, BlockType.STONE);
         lastFpsTime = System.currentTimeMillis();
         lastFrameTime = System.nanoTime();
         fps = 0;
@@ -86,7 +85,7 @@ public class Game {
             
             // Then render the player (currently disabled for first-person)
             player.render();
-            stoneBlock.render();
+            //stoneBlock.render();
 
             // Switch to orthographic projection for 2D rendering
             GL11.glMatrixMode(GL11.GL_PROJECTION);

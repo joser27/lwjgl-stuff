@@ -26,9 +26,9 @@ public class Player extends GameObject {
     private BoundingBox boundingBox; // Player's bounding box
     
     // Player dimensions for bounding box
-    private static final float PLAYER_WIDTH = 1.8f;  // Slightly narrower than rendered size
-    private static final float PLAYER_HEIGHT = 3.6f; // Player is taller than wide (2x)
-    private static final float PLAYER_DEPTH = 1.8f;  // Same as width
+    private static final float PLAYER_WIDTH = World.BLOCK_SIZE;  // Slightly narrower than rendered size
+    private static final float PLAYER_HEIGHT = World.BLOCK_SIZE*2; // Player is taller than wide (2x)
+    private static final float PLAYER_DEPTH = World.BLOCK_SIZE;  // Same as width
     
     // Store last grounded position to prevent teleporting
     private float lastGroundY = 0;
@@ -293,8 +293,8 @@ public class Player extends GameObject {
 
     @Override
     public void render() {        
-        // Debug rendering of the bounding box (when in debug mode)
-        if (debugMode) {
+        // Debug rendering of the bounding box (only when in debug mode AND no-clip mode)
+        if (debugMode && noClipMode) {
             GL11.glPushMatrix();
             GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
             GL11.glColor3f(1.0f, 0.0f, 0.0f);  // Red for bounding box
