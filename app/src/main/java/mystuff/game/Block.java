@@ -8,12 +8,21 @@ import org.lwjgl.opengl.GL11;
 public class Block {
     private float x, y, z;
     private BlockType type;
+    private BoundingBox boundingBox;
 
     public Block(float x, float y, float z, BlockType type) {
         this.x = x;
         this.y = y;
         this.z = z;
         this.type = type;
+        
+        // Create a bounding box for the block
+        // Use World.BLOCK_SIZE for accurate size matching
+        float halfSize = World.BLOCK_SIZE / 2.0f;
+        this.boundingBox = new BoundingBox(
+            x - halfSize, y - halfSize, z - halfSize,
+            x + halfSize, y + halfSize, z + halfSize
+        );
     }
 
     public void update(Window window, float deltaTime) {
@@ -48,8 +57,8 @@ public class Block {
                 break;
         }
 
-        // Render the block
-        Shapes.cube(1.0f);
+        // Render the block with World.BLOCK_SIZE/2 for proper sizing
+        Shapes.cube(World.BLOCK_SIZE / 2.0f);
 
         // Restore OpenGL state
         GL11.glPopMatrix();
@@ -69,6 +78,10 @@ public class Block {
 
     public BlockType getType() {
         return type;
+    }
+    
+    public BoundingBox getBoundingBox() {
+        return boundingBox;
     }
 }
 

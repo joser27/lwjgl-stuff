@@ -58,6 +58,62 @@ public class Shapes {
         GL11.glVertex3f(-size, size, -size);
         GL11.glEnd();
     }
+    
+    /**
+     * Draws a cube centered at the current position with different dimensions
+     * @param width Half the width of the cube (X-axis)
+     * @param height Half the height of the cube (Y-axis)
+     * @param depth Half the depth of the cube (Z-axis)
+     */
+    public static void cube(float width, float height, float depth) {
+        // Front face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(-width, -height, depth);
+        GL11.glVertex3f(width, -height, depth);
+        GL11.glVertex3f(width, height, depth);
+        GL11.glVertex3f(-width, height, depth);
+        GL11.glEnd();
+
+        // Back face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(-width, -height, -depth);
+        GL11.glVertex3f(-width, height, -depth);
+        GL11.glVertex3f(width, height, -depth);
+        GL11.glVertex3f(width, -height, -depth);
+        GL11.glEnd();
+
+        // Top face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(-width, height, -depth);
+        GL11.glVertex3f(-width, height, depth);
+        GL11.glVertex3f(width, height, depth);
+        GL11.glVertex3f(width, height, -depth);
+        GL11.glEnd();
+
+        // Bottom face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(-width, -height, -depth);
+        GL11.glVertex3f(width, -height, -depth);
+        GL11.glVertex3f(width, -height, depth);
+        GL11.glVertex3f(-width, -height, depth);
+        GL11.glEnd();
+
+        // Right face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(width, -height, -depth);
+        GL11.glVertex3f(width, height, -depth);
+        GL11.glVertex3f(width, height, depth);
+        GL11.glVertex3f(width, -height, depth);
+        GL11.glEnd();
+
+        // Left face
+        GL11.glBegin(GL11.GL_QUADS);
+        GL11.glVertex3f(-width, -height, -depth);
+        GL11.glVertex3f(-width, -height, depth);
+        GL11.glVertex3f(-width, height, depth);
+        GL11.glVertex3f(-width, height, -depth);
+        GL11.glEnd();
+    }
 
     /**
      * Draws a sphere using triangle strips
