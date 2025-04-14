@@ -18,6 +18,7 @@ public class Game {
     private long lastFrameTime;
     private float deltaTime;
     private int testTextureID = -1;
+    private PlayerRenderer playerRenderer;
 
     public Game() {
         window = new Window("3D Game", 1920, 1080); 
@@ -44,6 +45,8 @@ public class Game {
         // Initialize world and player after OpenGL context is created
         world = new World();
         player = new Player(3, 20 * World.BLOCK_SIZE, 3, camera, world);
+        playerRenderer = new PlayerRenderer();
+        playerRenderer.init();
         
         // Try to load the dirt texture
         System.out.println("Loading dirt texture...");
@@ -100,8 +103,8 @@ public class Game {
             // Render the world
             world.render();
             
-            // Render the player (if in debug mode)
-            player.render();
+            // Render the player
+            playerRenderer.render(player, camera.getYaw(), camera.getPitch());
 
             // Update FPS counter
             updateFPS();
@@ -140,11 +143,17 @@ public class Game {
         }
     }
 
-    private void cleanup() {
-        // Clean up textures and font
+    public void cleanup() {
+        if (player != null) {
+            player.cleanup();
+        }
+        if (world != null) {
+            world.cleanup();
+        }
+        window.cleanup();
         mystuff.utils.TextureLoader.cleanup();
         mystuff.utils.FontLoader.cleanup();
-        window.cleanup();
+        playerRenderer.cleanup();
     }
 
     private void renderText(String text, int x, int y) {

@@ -141,4 +141,17 @@ public class World {
         blocks[x][y][z] = new Block(worldX, worldY, worldZ, BlockType.AIR);
         return true;
     }
+
+    public void cleanup() {
+        // Cleanup any resources held by blocks
+        for (Block[][] blockLayer : blocks) {
+            for (Block[] blockRow : blockLayer) {
+                for (Block block : blockRow) {
+                    if (block != null) {
+                        block.cleanup();
+                    }
+                }
+            }
+        }
+    }
 }

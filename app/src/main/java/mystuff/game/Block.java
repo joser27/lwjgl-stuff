@@ -242,5 +242,21 @@ public class Block {
     public BoundingBox getBoundingBox() {
         return boundingBox;
     }
+
+    public void cleanup() {
+        // Delete textures if they were loaded
+        if (dirtTexture != -1) {
+            GL11.glDeleteTextures(dirtTexture);
+            dirtTexture = -1;
+        }
+        if (stoneTexture != -1) {
+            GL11.glDeleteTextures(stoneTexture);
+            stoneTexture = -1;
+        }
+        if (grassTexture != -1) {
+            GL11.glDeleteTextures(grassTexture);
+            grassTexture = -1;
+        }
+    }
 }
 

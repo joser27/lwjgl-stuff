@@ -6,6 +6,7 @@ import mystuff.engine.GameObject;
 import mystuff.engine.Window;
 import mystuff.engine.Camera;
 import mystuff.utils.Shapes;
+import mystuff.utils.TextureLoader;
 import java.util.List;
 
 public class Player extends GameObject {
@@ -38,6 +39,11 @@ public class Player extends GameObject {
     private boolean wasNPressed = false;
     private float cameraSpeed = 0.2f;  // Faster camera movement in no-clip mode
 
+    private static int playerTexture = -1;
+    private static final float TEXTURE_SCALE = 1280.0f;  // Your texture width
+
+    private PlayerRenderer renderer;
+
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
@@ -48,6 +54,24 @@ public class Player extends GameObject {
         
         // Create player's bounding box
         updateBoundingBox();
+
+        // Load player texture if not already loaded
+        if (playerTexture == -1) {
+            playerTexture = TextureLoader.loadTexture("resources/textures/player.png");
+            if (playerTexture == -1) {
+                System.err.println("Failed to load player texture!");
+            } else {
+                System.out.println("Successfully loaded player texture with ID: " + playerTexture);
+                // Set texture parameters
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, playerTexture);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            }
+        }
+
+        this.renderer = new PlayerRenderer();
+        this.renderer.init();
     }
     
     /**
@@ -292,16 +316,13 @@ public class Player extends GameObject {
     }
 
     @Override
-    public void render() {        
-        // Debug rendering of the bounding box (only when in debug mode AND no-clip mode)
-        if (debugMode && noClipMode) {
-            GL11.glPushMatrix();
-            GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
-            GL11.glColor3f(1.0f, 0.0f, 0.0f);  // Red for bounding box
-            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);  // Wireframe mode
-            Shapes.cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
-            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);  // Back to fill mode
-            GL11.glPopMatrix();
+    public void render() {
+        renderer.render(this, camera.getYaw(), camera.getPitch());
+    }
+
+    public void cleanup() {
+        if (renderer != null) {
+            renderer.cleanup();
         }
     }
 
