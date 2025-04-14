@@ -19,11 +19,11 @@ public class Game {
     private float deltaTime;
 
     public Game() {
-        window = new Window("3D Game", 1920, 1080);
+        window = new Window("3D Game", 1920, 1080); 
         camera = new Camera(0, 0, 0);  // Camera starts at origin
         world = new World();
         player = new Player(3, 10 * World.BLOCK_SIZE, 3, camera, world); 
-        stoneBlock = new Block(3.0f, 10.0f, 3.0f, BlockType.STONE);
+        stoneBlock = new Block(3.0f, 5.0f, 3.0f, BlockType.STONE);
         lastFpsTime = System.currentTimeMillis();
         lastFrameTime = System.nanoTime();
         fps = 0;

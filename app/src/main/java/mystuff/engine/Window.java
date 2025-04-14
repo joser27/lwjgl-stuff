@@ -9,11 +9,17 @@ public class Window {
     private long windowHandle;
     private int width, height;
     private String title;
+    private boolean isFullscreen;
 
     public Window(String title, int width, int height) {
+        this(title, width, height, false);
+    }
+
+    public Window(String title, int width, int height, boolean fullscreen) {
         this.title = title;
         this.width = width;
         this.height = height;
+        this.isFullscreen = fullscreen;
     }
 
     public void init() {
@@ -21,10 +27,32 @@ public class Window {
             throw new IllegalStateException("Unable to initialize GLFW");
         }
 
+        // Configure window hints
+        GLFW.glfwDefaultWindowHints();
+        GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE); // Hide window until we position it
+        GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
+
+        // Create the window
         windowHandle = GLFW.glfwCreateWindow(width, height, title, MemoryUtil.NULL, MemoryUtil.NULL);
+        
         if (windowHandle == MemoryUtil.NULL) {
             throw new RuntimeException("Failed to create the GLFW window");
         }
+
+        // Get the resolution of the primary monitor
+        long primaryMonitor = GLFW.glfwGetPrimaryMonitor();
+        org.lwjgl.glfw.GLFWVidMode vidmode = GLFW.glfwGetVideoMode(primaryMonitor);
+        if (vidmode != null) {
+            // Center horizontally, position 50 pixels from top
+            GLFW.glfwSetWindowPos(
+                windowHandle,
+                (vidmode.width() - width) / 2,
+                50  // Fixed distance from top of screen
+            );
+        }
+
+        // Make the window visible
+        GLFW.glfwShowWindow(windowHandle);
 
         GLFW.glfwMakeContextCurrent(windowHandle);
         GL.createCapabilities();
