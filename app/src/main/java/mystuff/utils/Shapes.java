@@ -7,111 +7,116 @@ public class Shapes {
         
     /**
      * Draws a cube centered at the current position
-     * @param size Half the length of each side
+     * @param size The full length of each side
      */
     public static void cube(float size) {
+        float halfSize = size / 2;
         // Front face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-size, -size, size);
-        GL11.glVertex3f(size, -size, size);
-        GL11.glVertex3f(size, size, size);
-        GL11.glVertex3f(-size, size, size);
+        GL11.glVertex3f(-halfSize, -halfSize, halfSize);
+        GL11.glVertex3f(halfSize, -halfSize, halfSize);
+        GL11.glVertex3f(halfSize, halfSize, halfSize);
+        GL11.glVertex3f(-halfSize, halfSize, halfSize);
         GL11.glEnd();
 
         // Back face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glVertex3f(-size, size, -size);
-        GL11.glVertex3f(size, size, -size);
-        GL11.glVertex3f(size, -size, -size);
+        GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
+        GL11.glVertex3f(-halfSize, halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, -halfSize, -halfSize);
         GL11.glEnd();
 
         // Top face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-size, size, -size);
-        GL11.glVertex3f(-size, size, size);
-        GL11.glVertex3f(size, size, size);
-        GL11.glVertex3f(size, size, -size);
+        GL11.glVertex3f(-halfSize, halfSize, -halfSize);
+        GL11.glVertex3f(-halfSize, halfSize, halfSize);
+        GL11.glVertex3f(halfSize, halfSize, halfSize);
+        GL11.glVertex3f(halfSize, halfSize, -halfSize);
         GL11.glEnd();
 
         // Bottom face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glVertex3f(size, -size, -size);
-        GL11.glVertex3f(size, -size, size);
-        GL11.glVertex3f(-size, -size, size);
+        GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, -halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, -halfSize, halfSize);
+        GL11.glVertex3f(-halfSize, -halfSize, halfSize);
         GL11.glEnd();
 
         // Right face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(size, -size, -size);
-        GL11.glVertex3f(size, size, -size);
-        GL11.glVertex3f(size, size, size);
-        GL11.glVertex3f(size, -size, size);
+        GL11.glVertex3f(halfSize, -halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, halfSize, -halfSize);
+        GL11.glVertex3f(halfSize, halfSize, halfSize);
+        GL11.glVertex3f(halfSize, -halfSize, halfSize);
         GL11.glEnd();
 
         // Left face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glVertex3f(-size, -size, size);
-        GL11.glVertex3f(-size, size, size);
-        GL11.glVertex3f(-size, size, -size);
+        GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
+        GL11.glVertex3f(-halfSize, -halfSize, halfSize);
+        GL11.glVertex3f(-halfSize, halfSize, halfSize);
+        GL11.glVertex3f(-halfSize, halfSize, -halfSize);
         GL11.glEnd();
     }
     
     /**
-     * Draws a cube centered at the current position with different dimensions
-     * @param width Half the width of the cube (X-axis)
-     * @param height Half the height of the cube (Y-axis)
-     * @param depth Half the depth of the cube (Z-axis)
+     * Draws a cuboid (rectangular prism) centered at the current position with different dimensions
+     * @param width The full width of the cuboid (X-axis)
+     * @param height The full height of the cuboid (Y-axis)
+     * @param depth The full depth of the cuboid (Z-axis)
      */
-    public static void cube(float width, float height, float depth) {
+    public static void cuboid(float width, float height, float depth) {
+        float halfWidth = width / 2;
+        float halfHeight = height / 2;
+        float halfDepth = depth / 2;
+        
         // Front face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-width, -height, depth);
-        GL11.glVertex3f(width, -height, depth);
-        GL11.glVertex3f(width, height, depth);
-        GL11.glVertex3f(-width, height, depth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
+        GL11.glVertex3f(halfWidth, -halfHeight, halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, halfDepth);
+        GL11.glVertex3f(-halfWidth, halfHeight, halfDepth);
         GL11.glEnd();
 
         // Back face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-width, -height, -depth);
-        GL11.glVertex3f(-width, height, -depth);
-        GL11.glVertex3f(width, height, -depth);
-        GL11.glVertex3f(width, -height, -depth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
+        GL11.glVertex3f(-halfWidth, halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
         GL11.glEnd();
 
         // Top face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-width, height, -depth);
-        GL11.glVertex3f(-width, height, depth);
-        GL11.glVertex3f(width, height, depth);
-        GL11.glVertex3f(width, height, -depth);
+        GL11.glVertex3f(-halfWidth, halfHeight, -halfDepth);
+        GL11.glVertex3f(-halfWidth, halfHeight, halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, -halfDepth);
         GL11.glEnd();
 
         // Bottom face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-width, -height, -depth);
-        GL11.glVertex3f(width, -height, -depth);
-        GL11.glVertex3f(width, -height, depth);
-        GL11.glVertex3f(-width, -height, depth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, -halfHeight, halfDepth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
         GL11.glEnd();
 
         // Right face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(width, -height, -depth);
-        GL11.glVertex3f(width, height, -depth);
-        GL11.glVertex3f(width, height, depth);
-        GL11.glVertex3f(width, -height, depth);
+        GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, -halfDepth);
+        GL11.glVertex3f(halfWidth, halfHeight, halfDepth);
+        GL11.glVertex3f(halfWidth, -halfHeight, halfDepth);
         GL11.glEnd();
 
         // Left face
         GL11.glBegin(GL11.GL_QUADS);
-        GL11.glVertex3f(-width, -height, -depth);
-        GL11.glVertex3f(-width, -height, depth);
-        GL11.glVertex3f(-width, height, depth);
-        GL11.glVertex3f(-width, height, -depth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
+        GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
+        GL11.glVertex3f(-halfWidth, halfHeight, halfDepth);
+        GL11.glVertex3f(-halfWidth, halfHeight, -halfDepth);
         GL11.glEnd();
     }
 

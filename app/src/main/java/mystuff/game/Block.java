@@ -16,9 +16,8 @@ public class Block {
         this.z = z;
         this.type = type;
         
-        // Create a bounding box for the block
-        // Use World.BLOCK_SIZE for accurate size matching
-        float halfSize = World.BLOCK_SIZE / 2.0f;
+        // Create a bounding box centered at the block's position
+        float halfSize = World.BLOCK_SIZE / 2;
         this.boundingBox = new BoundingBox(
             x - halfSize, y - halfSize, z - halfSize,
             x + halfSize, y + halfSize, z + halfSize
@@ -57,11 +56,25 @@ public class Block {
                 break;
         }
 
-        // Render the block with World.BLOCK_SIZE/2 for proper sizing
-        Shapes.cube(World.BLOCK_SIZE / 2.0f);
+        // Render the block at full BLOCK_SIZE
+        Shapes.cube(World.BLOCK_SIZE); 
 
         // Restore OpenGL state
         GL11.glPopMatrix();
+        
+        boolean debugMode = true; // You could make this a field or get it from somewhere else
+        if (debugMode && type != BlockType.AIR) {
+            GL11.glPushMatrix();
+            GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
+            GL11.glColor3f(0.0f, 1.0f, 0.0f);  // Green for block bounding box
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);  // Wireframe mode
+            float width = boundingBox.getWidth();
+            float height = boundingBox.getHeight();
+            float depth = boundingBox.getDepth();
+            Shapes.cuboid(width, height, depth);
+            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);  // Back to fill mode
+            GL11.glPopMatrix();
+        }
     }
 
     public float getX() { 

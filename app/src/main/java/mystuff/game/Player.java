@@ -6,6 +6,7 @@ import mystuff.engine.GameObject;
 import mystuff.engine.Window;
 import mystuff.engine.Camera;
 import mystuff.utils.Shapes;
+import java.util.List;
 
 public class Player extends GameObject {
     private float speed = 0.1f;
@@ -15,7 +16,7 @@ public class Player extends GameObject {
     private boolean firstMouse = true;
     private float lastX = 400, lastY = 300;
     private float velocity = 0.0f;
-    private float gravity = -20.0f;
+    private float gravity = -10.0f;
     private World world;  // Reference to the world
     private boolean isOnGround = false;
     private float jumpForce = 10.0f;  // Increased jump force
@@ -147,8 +148,18 @@ public class Player extends GameObject {
      * Updates player position and physics (normal mode)
      */
     private void updatePlayerPhysics(Window window, float deltaTime) {
-        // Ground check using bounding box
-        isOnGround = world.checkGroundCollision(this);
+        // Get all blocks from the world
+        List<Block> blocks = world.getAllBlocks();
+        
+        // Check if player is standing on ground by checking collision with blocks
+        isOnGround = false;
+        for (Block block : blocks) {
+            BoundingBox blockBB = block.getBoundingBox();
+            if (boundingBox.isOnTopOf(blockBB, 0.1f)) {
+                isOnGround = true;
+                break;
+            }
+        }
         
         // Track the last ground position when we're on ground
         if (isOnGround) {
@@ -214,17 +225,47 @@ public class Player extends GameObject {
         BoundingBox zMovedBox = boundingBox.getTranslated(0, 0, dz);
         BoundingBox yMovedBox = boundingBox.getTranslated(0, dy, 0);
         
-        // Check collisions for each axis separately
-        if (!world.checkBoundingBoxCollision(xMovedBox)) {
+        // Check collisions for X movement
+        boolean xCollision = false;
+        for (Block block : blocks) {
+            if (xMovedBox.intersects(block.getBoundingBox())) {
+                xCollision = true;
+                break;
+            }
+        }
+        if (!xCollision) {
             x += dx;
         }
         
-        if (!world.checkBoundingBoxCollision(zMovedBox)) {
+        // Check collisions for Z movement
+        boolean zCollision = false;
+        for (Block block : blocks) {
+            if (zMovedBox.intersects(block.getBoundingBox())) {
+                zCollision = true;
+                break;
+            }
+        }
+        if (!zCollision) {
             z += dz;
         }
         
-        // Check vertical collision
-        if (!world.checkBoundingBoxCollision(yMovedBox)) {
+        // Check collisions for Y movement
+        boolean yCollision = false;
+        float groundLevel = 0; // Default ground level is 0
+        for (Block block : blocks) {
+            BoundingBox blockBB = block.getBoundingBox();
+            if (yMovedBox.intersects(blockBB)) {
+                yCollision = true;
+                if (velocity < 0) {
+                    // If moving down, we hit ground
+                    // Set ground level to the top of the block
+                    groundLevel = blockBB.getMaxY();
+                }
+                break;
+            }
+        }
+        
+        if (!yCollision) {
             // No collision, apply vertical movement
             y += dy;
         } else {
@@ -234,14 +275,9 @@ public class Player extends GameObject {
                 velocity = 0;
                 isOnGround = true;
                 
-                // Find the exact ground level at current position
-                float groundLevel = world.findGroundLevel(x, y, z);
-                
-                if (groundLevel != Float.MIN_VALUE) {
-                    // Position player so bottom of bounding box is at ground level
-                    // Add half player height to set center position
-                    y = groundLevel + (PLAYER_HEIGHT / 2);
-                }
+                // Position player so bottom of bounding box is at ground level
+                // Add half player height to set center position
+                y = groundLevel + (PLAYER_HEIGHT / 2);
             } else {
                 // If moving up, we hit ceiling
                 velocity = 0;
@@ -256,21 +292,14 @@ public class Player extends GameObject {
     }
 
     @Override
-    public void render() {
-        // Always render the player model, even in no-clip mode
-        GL11.glPushMatrix();
-        GL11.glTranslatef(x, y, z);
-        GL11.glColor3f(0.0f, 1.0f, 0.0f);
-        Shapes.cube(size);
-        GL11.glPopMatrix();
-        
+    public void render() {        
         // Debug rendering of the bounding box (when in debug mode)
         if (debugMode) {
             GL11.glPushMatrix();
             GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
             GL11.glColor3f(1.0f, 0.0f, 0.0f);  // Red for bounding box
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);  // Wireframe mode
-            Shapes.cube(PLAYER_WIDTH / 2, PLAYER_HEIGHT / 2, PLAYER_DEPTH / 2);
+            Shapes.cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);  // Back to fill mode
             GL11.glPopMatrix();
         }

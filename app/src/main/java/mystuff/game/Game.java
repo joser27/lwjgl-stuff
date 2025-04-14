@@ -22,8 +22,8 @@ public class Game {
         window = new Window("3D Game", 1920, 1080);
         camera = new Camera(0, 0, 0);  // Camera starts at origin
         world = new World();
-        player = new Player(0, 10 * World.BLOCK_SIZE, 0, camera, world); 
-        stoneBlock = new Block(3.0f, 3.0f, 3.0f, BlockType.STONE);
+        player = new Player(3, 10 * World.BLOCK_SIZE, 3, camera, world); 
+        stoneBlock = new Block(3.0f, 10.0f, 3.0f, BlockType.STONE);
         lastFpsTime = System.currentTimeMillis();
         lastFrameTime = System.nanoTime();
         fps = 0;
