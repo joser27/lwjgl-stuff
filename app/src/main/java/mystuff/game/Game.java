@@ -5,13 +5,14 @@ import mystuff.engine.Camera;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import mystuff.game.BlockType;
+import mystuff.utils.Debug;
+import mystuff.utils.KeyboardManager;
 
 public class Game {
     private Window window;
     private Camera camera;
     private Player player;
     private World world;
-    private Block stoneBlock;
     private long lastFpsTime;
     private int fps;
     private int fpsCount;
@@ -19,6 +20,7 @@ public class Game {
     private float deltaTime;
     private int testTextureID = -1;
     private PlayerRenderer playerRenderer;
+    private Skybox skybox;
 
     public Game() {
         window = new Window("3D Game", 1920, 1080); 
@@ -28,6 +30,7 @@ public class Game {
         fps = 0;
         fpsCount = 0;
         deltaTime = 0;
+        skybox = new Skybox();
     }
 
     public void run() {
@@ -47,6 +50,7 @@ public class Game {
         player = new Player(3, 20 * World.BLOCK_SIZE, 3, camera, world);
         playerRenderer = new PlayerRenderer();
         playerRenderer.init();
+        skybox.init();
         
         // Try to load the dirt texture
         System.out.println("Loading dirt texture...");
@@ -76,6 +80,9 @@ public class Game {
 
     private void loop() {
         while (!window.shouldClose()) {
+            // Update keyboard state
+            KeyboardManager.update(window.getWindowHandle());
+
             // Update delta time
             updateDeltaTime();
 
@@ -100,6 +107,9 @@ public class Game {
             // Enable depth testing for 3D rendering
             GL11.glEnable(GL11.GL_DEPTH_TEST);
             
+            // Render skybox first
+            skybox.render();
+            
             // Render the world
             world.render();
             
@@ -110,7 +120,7 @@ public class Game {
             updateFPS();
 
             // Check for escape key
-            if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_ESCAPE) == GLFW.GLFW_PRESS) {
+            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_ESCAPE)) {
                 GLFW.glfwSetWindowShouldClose(window.getWindowHandle(), true);
             }
 
@@ -124,12 +134,16 @@ public class Game {
             GL11.glPushMatrix();
             GL11.glLoadIdentity();
             
-            // Render FPS counter
-            renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
+            // Render FPS counter if enabled
+            if (Debug.showFPS()) {
+                renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
+            }
             
-            // Render position info
-            renderText(String.format("Position: %.2f, %.2f, %.2f", 
-                camera.getX(), camera.getY(), camera.getZ()), 10, 30);
+            // Render position info if debug mode is enabled
+            if (Debug.showPlayerInfo()) {
+                renderText(String.format("Position: %.2f, %.2f, %.2f", 
+                    camera.getX(), camera.getY(), camera.getZ()), 10, 30);
+            }
             
             GL11.glPopMatrix();
             GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -149,6 +163,9 @@ public class Game {
         }
         if (world != null) {
             world.cleanup();
+        }
+        if (skybox != null) {
+            skybox.cleanup();
         }
         window.cleanup();
         mystuff.utils.TextureLoader.cleanup();

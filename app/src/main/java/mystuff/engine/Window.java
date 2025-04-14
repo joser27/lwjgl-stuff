@@ -92,7 +92,7 @@ public class Window {
         float aspectRatio = (float) width / height;
         // Adjust near and far planes
         float zNear = 0.1f;
-        float zFar = 1000.0f;
+        float zFar = 10000.0f;
         
         GL11.glMatrixMode(GL11.GL_PROJECTION);
         GL11.glLoadIdentity();

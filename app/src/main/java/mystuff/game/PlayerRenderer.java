@@ -37,7 +37,8 @@ public class PlayerRenderer {
     }
 
     public void render(Player player, float yaw, float pitch) {
-        if (playerTexture == -1) return;
+        // Only render player model in no-clip mode
+        if (playerTexture == -1 || !player.isNoClipMode()) return;
 
         glPushMatrix();
         

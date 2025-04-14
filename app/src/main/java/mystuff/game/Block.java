@@ -5,6 +5,7 @@ import mystuff.engine.Window;
 import mystuff.utils.Shapes;
 import mystuff.utils.TextureLoader;
 import org.lwjgl.opengl.GL11;
+import mystuff.utils.Debug;
 
 public class Block {
     private float x, y, z;
@@ -207,8 +208,7 @@ public class Block {
         GL11.glPopAttrib();
         GL11.glPopMatrix();
         
-        boolean debugMode = true; 
-        if (debugMode && type != BlockType.AIR) {
+        if (Debug.showBoundingBoxes() && type != BlockType.AIR) {
             GL11.glPushMatrix();
             GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
             GL11.glColor3f(0.0f, 1.0f, 0.0f);  // Green for block bounding box
@@ -219,6 +219,15 @@ public class Block {
             Shapes.cuboid(width, height, depth);
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);  // Back to fill mode
             GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);  // Reset color
+            GL11.glPopMatrix();
+        }
+
+        // Add block info display if enabled
+        if (Debug.showBlockInfo()) {
+            GL11.glPushMatrix();
+            GL11.glTranslatef(x, y + World.BLOCK_SIZE, z);
+            // Render block type and coordinates
+            // Note: You'll need to implement text rendering here
             GL11.glPopMatrix();
         }
     }

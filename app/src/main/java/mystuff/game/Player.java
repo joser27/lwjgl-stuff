@@ -8,6 +8,8 @@ import mystuff.engine.Camera;
 import mystuff.utils.Shapes;
 import mystuff.utils.TextureLoader;
 import java.util.List;
+import mystuff.utils.Debug;
+import mystuff.utils.KeyboardManager;
 
 public class Player extends GameObject {
     private float speed = 0.1f;
@@ -24,6 +26,7 @@ public class Player extends GameObject {
     private boolean debugMode = true;  // Add debug mode
     private boolean wasSpacePressed = false;  // Track space key state
     private static final float GROUND_CHECK_DISTANCE = 0.05f;  // How far below to check for ground
+    private static final float MAX_VELOCITY = 30.0f;  // Maximum velocity (both up and down)
     private BoundingBox boundingBox; // Player's bounding box
     
     // Player dimensions for bounding box
@@ -89,22 +92,25 @@ public class Player extends GameObject {
     @Override
     public void update(Window window, float deltaTime) {
         // Check for no-clip mode toggle
-        boolean isNPressed = GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_N) == GLFW.GLFW_PRESS;
-        if (isNPressed && !wasNPressed) {
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_N)) {
             noClipMode = !noClipMode;
-            if (debugMode) System.out.println("No-clip mode: " + (noClipMode ? "ON" : "OFF"));
+            if (Debug.showPlayerInfo()) System.out.println("No-clip mode: " + (noClipMode ? "ON" : "OFF"));
         }
-        wasNPressed = isNPressed;
         
+        // Add debug mode toggle with F3
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
+            Debug.toggleDebugMode();
+            Debug.toggleBoundingBoxes();
+            Debug.togglePlayerInfo();
+        }
+
         if (noClipMode) {
-            // No-clip camera mode - move camera independently
             updateCameraNoClip(window, deltaTime);
         } else {
-            // Normal mode - update player physics and camera follows player
             updatePlayerPhysics(window, deltaTime);
         }
 
-        if (debugMode) {
+        if (Debug.showPlayerInfo()) {
             System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b NoClip: %b%n", 
                 x, y, z, velocity, isOnGround, noClipMode);
         }
@@ -124,39 +130,34 @@ public class Player extends GameObject {
         // Right vector is perpendicular to forward
         float rightX = (float) Math.cos(yaw);
         float rightZ = (float) Math.sin(yaw);
-        
-        // Up vector is always up in world space
-        float upX = 0;
-        float upY = 1;
-        float upZ = 0;
 
         float dx = 0, dy = 0, dz = 0;
 
         // Forward/Backward
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
             dx += forwardX * cameraSpeed;
             dz -= forwardZ * cameraSpeed;
         }
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_S) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
             dx -= forwardX * cameraSpeed;
             dz += forwardZ * cameraSpeed;
         }
 
         // Strafe Left/Right
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
             dx -= rightX * cameraSpeed;
             dz -= rightZ * cameraSpeed;
         }
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_D) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
             dx += rightX * cameraSpeed;
             dz += rightZ * cameraSpeed;
         }
         
         // Up/Down
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE)) {
             dy += cameraSpeed;
         }
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT)) {
             dy -= cameraSpeed;
         }
         
@@ -172,6 +173,13 @@ public class Player extends GameObject {
      * Updates player position and physics (normal mode)
      */
     private void updatePlayerPhysics(Window window, float deltaTime) {
+        // Check for reset key
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_R)) {
+            x = 5.0f;
+            y = 5.0f;
+            z = 5.0f;
+        }
+
         // Get all blocks from the world
         List<Block> blocks = world.getAllBlocks();
         
@@ -191,17 +199,22 @@ public class Player extends GameObject {
         }
         
         // Handle jumping
-        boolean isSpacePressed = GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_SPACE) == GLFW.GLFW_PRESS;
+        boolean isSpacePressed = KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE);
         if (isSpacePressed && !wasSpacePressed && isOnGround) {
             velocity = jumpForce;
             isOnGround = false;
-            if (debugMode) System.out.println("Jump initiated! Velocity: " + velocity);
+            if (Debug.showPlayerInfo()) System.out.println("Jump initiated! Velocity: " + velocity);
         }
         wasSpacePressed = isSpacePressed;
 
         // Apply gravity and vertical movement
         if (!isOnGround) {
             velocity += gravity * deltaTime;
+            // Clamp velocity to maximum speed
+            velocity = Math.max(Math.min(velocity, MAX_VELOCITY), -MAX_VELOCITY);
+            if (Debug.showPlayerInfo() && Math.abs(velocity) >= MAX_VELOCITY) {
+                System.out.println("Velocity clamped at: " + velocity);
+            }
         } else {
             // Reset velocity when on ground
             velocity = 0;
@@ -221,21 +234,21 @@ public class Player extends GameObject {
         float dx = 0, dz = 0;
 
         // Forward/Backward
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_W) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
             dx += forwardX * speed;
             dz -= forwardZ * speed;
         }
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_S) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
             dx -= forwardX * speed;
             dz += forwardZ * speed;
         }
 
         // Strafe Left/Right
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_A) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
             dx -= rightX * speed;
             dz -= rightZ * speed;
         }
-        if (GLFW.glfwGetKey(window.getWindowHandle(), GLFW.GLFW_KEY_D) == GLFW.GLFW_PRESS) {
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
             dx += rightX * speed;
             dz += rightZ * speed;
         }
@@ -347,5 +360,9 @@ public class Player extends GameObject {
     
     public BoundingBox getBoundingBox() {
         return boundingBox;
+    }
+    
+    public boolean isNoClipMode() {
+        return noClipMode;
     }
 } 
