@@ -15,6 +15,10 @@ public class Block {
     private static int stoneTexture = -1;
     private static int grassTexture = -1;
 
+    public enum Face {
+        FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM
+    }
+
     public Block(float x, float y, float z, BlockType type) {
         this.x = x;
         this.y = y;
@@ -79,22 +83,8 @@ public class Block {
         }
     }
 
-    public void update(Window window, float deltaTime) {
-        // Blocks don't need to update currently
-    }
-
-    public void render() {
-        if (type == BlockType.AIR) return;  // Don't render air blocks
-
-        // Save current OpenGL state
-        GL11.glPushMatrix();
-        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-        
-        // Move to block position
-        GL11.glTranslatef(x, y, z);
-
-        // Enable texturing
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
+    public void renderFace(Face face) {
+        if (type == BlockType.AIR) return;
 
         // Bind appropriate texture based on block type
         int textureID = -1;
@@ -109,9 +99,6 @@ public class Block {
                 textureID = grassTexture;
                 break;
         }
-
-        // Set color to white to show texture's true colors
-        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
         if (textureID != -1) {
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
@@ -130,79 +117,107 @@ public class Block {
             }
         }
 
-        float size = World.BLOCK_SIZE / 2;  // Half size for centered rendering
+        float size = World.BLOCK_SIZE / 2;
 
-        // Front face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(-size, -size, size);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(size, -size, size);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(size, size, size);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(-size, size, size);
-        GL11.glEnd();
+        switch (face) {
+            case FRONT: // Front face (positive Z)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(-size, -size, size);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(size, -size, size);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(size, size, size);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(-size, size, size);
+                GL11.glEnd();
+                break;
 
-        // Back face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(-size, size, -size);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(size, size, -size);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(size, -size, -size);
-        GL11.glEnd();
+            case BACK: // Back face (negative Z)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(-size, -size, -size);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(-size, size, -size);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(size, size, -size);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(size, -size, -size);
+                GL11.glEnd();
+                break;
 
-        // Top face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(-size, size, -size);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(-size, size, size);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(size, size, size);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(size, size, -size);
-        GL11.glEnd();
+            case TOP: // Top face (positive Y)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(-size, size, -size);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(-size, size, size);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(size, size, size);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(size, size, -size);
+                GL11.glEnd();
+                break;
 
-        // Bottom face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(size, -size, -size);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(size, -size, size);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(-size, -size, size);
-        GL11.glEnd();
+            case BOTTOM: // Bottom face (negative Y)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(-size, -size, -size);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(size, -size, -size);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(size, -size, size);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(-size, -size, size);
+                GL11.glEnd();
+                break;
 
-        // Right face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(size, -size, -size);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(size, size, -size);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(size, size, size);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(size, -size, size);
-        GL11.glEnd();
+            case RIGHT: // Right face (positive X)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(size, -size, -size);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(size, size, -size);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(size, size, size);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(size, -size, size);
+                GL11.glEnd();
+                break;
 
-        // Left face
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glTexCoord2f(0, 0);
-        GL11.glVertex3f(-size, -size, -size);
-        GL11.glTexCoord2f(1, 0);
-        GL11.glVertex3f(-size, -size, size);
-        GL11.glTexCoord2f(1, 1);
-        GL11.glVertex3f(-size, size, size);
-        GL11.glTexCoord2f(0, 1);
-        GL11.glVertex3f(-size, size, -size);
-        GL11.glEnd();
+            case LEFT: // Left face (negative X)
+                GL11.glBegin(GL11.GL_QUADS);
+                GL11.glTexCoord2f(0, 0);
+                GL11.glVertex3f(-size, -size, -size);
+                GL11.glTexCoord2f(1, 0);
+                GL11.glVertex3f(-size, -size, size);
+                GL11.glTexCoord2f(1, 1);
+                GL11.glVertex3f(-size, size, size);
+                GL11.glTexCoord2f(0, 1);
+                GL11.glVertex3f(-size, size, -size);
+                GL11.glEnd();
+                break;
+        }
+    }
+
+    public void update(Window window, float deltaTime) {
+        // Blocks don't need to update currently
+    }
+
+    public void render() {
+        if (type == BlockType.AIR) return;
+
+        // Save current OpenGL state
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        
+        // Move to block position
+        GL11.glTranslatef(x, y, z);
+
+        // Render all faces
+        for (Face face : Face.values()) {
+            renderFace(face);
+        }
 
         // Restore OpenGL state
         GL11.glPopAttrib();

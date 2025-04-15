@@ -50,7 +50,7 @@ public class World {
         
         // Get or create the chunk
         ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-        Chunk chunk = chunks.computeIfAbsent(key, k -> new Chunk(chunkX, chunkY, chunkZ));
+        Chunk chunk = chunks.computeIfAbsent(key, k -> new Chunk(this, chunkX, chunkY, chunkZ));
         
         // Convert to local chunk coordinates
         int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
@@ -224,5 +224,10 @@ public class World {
             result = 31 * result + z;
             return result;
         }
+    }
+
+    // Get chunk at chunk coordinates
+    public Chunk getChunk(int chunkX, int chunkY, int chunkZ) {
+        return chunks.get(new ChunkKey(chunkX, chunkY, chunkZ));
     }
 }
