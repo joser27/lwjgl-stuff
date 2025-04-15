@@ -102,6 +102,8 @@ public class Block {
 
         if (textureID != -1) {
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
+            // Reset color to white for proper texture rendering
+            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
             // Fallback colors if texture loading failed
             switch (type) {
@@ -214,6 +216,9 @@ public class Block {
         // Move to block position
         GL11.glTranslatef(x, y, z);
 
+        // Set white color for proper texture rendering
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
         // Render all faces
         for (Face face : Face.values()) {
             renderFace(face);
@@ -223,27 +228,36 @@ public class Block {
         GL11.glPopAttrib();
         GL11.glPopMatrix();
         
+        // Debug rendering with separate state
         if (Debug.showBoundingBoxes() && type != BlockType.AIR) {
+            GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_CURRENT_BIT | GL11.GL_POLYGON_BIT);
             GL11.glPushMatrix();
+            
+            // Disable texturing for debug rendering
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
+            
             GL11.glTranslatef(boundingBox.getCenterX(), boundingBox.getCenterY(), boundingBox.getCenterZ());
             GL11.glColor3f(0.0f, 1.0f, 0.0f);  // Green for block bounding box
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);  // Wireframe mode
+            
             float width = boundingBox.getWidth();
             float height = boundingBox.getHeight();
             float depth = boundingBox.getDepth();
             Shapes.cuboid(width, height, depth);
-            GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);  // Back to fill mode
-            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);  // Reset color
+            
             GL11.glPopMatrix();
+            GL11.glPopAttrib();
         }
 
         // Add block info display if enabled
         if (Debug.showBlockInfo()) {
+            GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_CURRENT_BIT);
             GL11.glPushMatrix();
             GL11.glTranslatef(x, y + World.BLOCK_SIZE, z);
             // Render block type and coordinates
             // Note: You'll need to implement text rendering here
             GL11.glPopMatrix();
+            GL11.glPopAttrib();
         }
     }
 

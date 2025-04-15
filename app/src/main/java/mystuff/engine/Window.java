@@ -82,38 +82,6 @@ public class Window {
         // Clear color and depth buffer
         GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         GL11.glClearDepth(1.0);
-        
-        setupProjection();
-    }
-
-    private void setupProjection() {
-        // Reduce FOV to 45 degrees
-        float fov = 45.0f;
-        float aspectRatio = (float) width / height;
-        // Adjust near and far planes
-        float zNear = 0.1f;
-        float zFar = 10000.0f;
-        
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glLoadIdentity();
-        
-        // Calculate perspective projection values
-        float yScale = (float) (1.0f / Math.tan(Math.toRadians(fov / 2.0f)));
-        float xScale = yScale / aspectRatio;
-        float frustumLength = zFar - zNear;
-        
-        // Create perspective projection matrix
-        float[] matrix = new float[16];
-        matrix[0] = xScale;
-        matrix[5] = yScale;
-        matrix[10] = -((zFar + zNear) / frustumLength);
-        matrix[11] = -1;
-        matrix[14] = -((2 * zNear * zFar) / frustumLength);
-        matrix[15] = 0;
-        
-        GL11.glLoadMatrixf(matrix);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
     }
 
     public void update() {

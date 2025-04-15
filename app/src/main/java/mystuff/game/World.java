@@ -7,6 +7,8 @@ import java.util.Map;
 import mystuff.engine.Window;
 import org.lwjgl.opengl.GL11;
 import mystuff.engine.Camera;
+import mystuff.utils.Debug;
+import mystuff.engine.Frustum;
 
 public class World {
     // World constants
@@ -18,13 +20,20 @@ public class World {
     private Map<ChunkKey, Chunk> chunks;
     private List<Tree> trees;  // Add list to store trees
     private Camera camera;  // Add camera field
-    private static final int RENDER_DISTANCE = 4; // Number of chunks to render in each direction
+    private Player player;  // Add player reference
+    private static final int RENDER_DISTANCE = 4; // Reduced from 8 to 4 chunks for more obvious culling
+    private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
 
     public World(Camera camera) {
         this.camera = camera;
         this.chunks = new HashMap<>();
         this.trees = new ArrayList<>();  // Initialize tree list
         generateWorld();
+    }
+
+    // Add method to set player reference
+    public void setPlayer(Player player) {
+        this.player = player;
     }
 
     /**
@@ -63,23 +72,38 @@ public class World {
     }
 
     private void generateWorld() {
-        // Create ground layer
+        // Create ground layer with varying heights
         for(int x = 0; x < WORLD_WIDTH; x++) {
             for(int z = 0; z < WORLD_DEPTH; z++) {
-                setBlock(x, 0, z, BlockType.DIRT);
+                // Create some hills using a simple height function
+                int height = (int)(Math.sin(x * 0.1) * 5 + Math.cos(z * 0.1) * 5) + 10;
+                height = Math.max(1, height); // Ensure minimum height of 1
+                
+                // Create columns of blocks
+                for(int y = 0; y < height; y++) {
+                    if (y == height - 1) {
+                        setBlock(x, y, z, BlockType.GRASS); // Top layer is grass
+                    } else if (y > height - 4) {
+                        setBlock(x, y, z, BlockType.DIRT);  // Few layers of dirt below grass
+                    } else {
+                        setBlock(x, y, z, BlockType.STONE); // Stone for deeper layers
+                    }
+                }
             }
         }
 
-        // Add some trees
-        trees.add(new Tree(5, 1, 5));  // Tree at (5,1,5)
-        trees.add(new Tree(10, 1, 10));  // Tree at (10,1,10)
-        trees.add(new Tree(3, 1, 12));  // Tree at (3,1,12)
-        trees.add(new Tree(22, 1, 12));  // Tree at (3,1,12)
+        // Add some scattered stone blocks above ground
+        for(int i = 0; i < 100; i++) {
+            int x = (int)(Math.random() * WORLD_WIDTH);
+            int z = (int)(Math.random() * WORLD_DEPTH);
+            int y = (int)(Math.random() * 10) + 15; // Place between y=15 and y=25
+            setBlock(x, y, z, BlockType.STONE);
+        }
 
-        // Add a stone block as before
-        setBlock(3, 5, 3, BlockType.STONE);
-        setBlock(4, 4, 3, BlockType.STONE);
-        setBlock(3, 3, 3, BlockType.STONE);
+        if (Debug.showPlayerInfo()) {
+            System.out.println("World generated with dimensions: " + 
+                             WORLD_WIDTH + "x" + WORLD_HEIGHT + "x" + WORLD_DEPTH);
+        }
     }
 
     public void update(Window window, float deltaTime) {
@@ -89,56 +113,109 @@ public class World {
         }
     }
 
-    public void render() {
-        // Calculate which chunks are in render distance
-        int playerChunkX = Chunk.worldToChunkCoord(camera.getX());
-        int playerChunkY = Chunk.worldToChunkCoord(camera.getY());
-        int playerChunkZ = Chunk.worldToChunkCoord(camera.getZ());
+    public void render(Camera camera) {
+        // Update camera frustum
+        camera.update();
+        
+        int chunksInView = 0;
+        int chunksInFrustum = 0;
+        int totalChunks = chunks.size();
+        
+        // Save OpenGL state
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
 
-        // First render all opaque blocks in visible chunks
+        // Use player position for culling if available, otherwise use camera
+        float cullingX = (player != null) ? player.getX() : camera.getX();
+        float cullingY = (player != null) ? player.getY() : camera.getY();
+        float cullingZ = (player != null) ? player.getZ() : camera.getZ();
+        
+        // Render opaque blocks first
         for (Chunk chunk : chunks.values()) {
-            // Skip chunks outside render distance
-            if (Math.abs(chunk.getChunkX() - playerChunkX) > RENDER_DISTANCE ||
-                Math.abs(chunk.getChunkY() - playerChunkY) > RENDER_DISTANCE ||
-                Math.abs(chunk.getChunkZ() - playerChunkZ) > RENDER_DISTANCE) {
-                continue;
+            // Get chunk bounds
+            float chunkX = chunk.getChunkX() * Chunk.CHUNK_SIZE;
+            float chunkY = chunk.getChunkY() * Chunk.CHUNK_SIZE;
+            float chunkZ = chunk.getChunkZ() * Chunk.CHUNK_SIZE;
+            
+            // Calculate distance from player (not camera) to chunk center
+            float dx = chunkX + Chunk.CHUNK_SIZE/2 - cullingX;
+            float dy = chunkY + Chunk.CHUNK_SIZE/2 - cullingY;
+            float dz = chunkZ + Chunk.CHUNK_SIZE/2 - cullingZ;
+            float distanceSquared = dx*dx + dy*dy + dz*dz;
+            float renderDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE);
+            
+            // Check if chunk is in view frustum relative to player position
+            boolean inFrustum = isBoxInViewFromPosition(
+                chunkX, chunkY, chunkZ,
+                Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE,
+                cullingX, cullingY, cullingZ,
+                camera.getPitch(), camera.getYaw()
+            );
+            
+            if (inFrustum) {
+                chunksInFrustum++;
+                // Only render if within render distance
+                if (distanceSquared <= renderDistanceSquared) {
+                    chunksInView++;
+                    chunk.render();
+                }
             }
-            chunk.render();
+            
+            // Debug visualization when debug mode is on
+            if (Debug.showBoundingBoxes()) {
+                GL11.glPushAttrib(GL11.GL_CURRENT_BIT | GL11.GL_POLYGON_BIT);
+                GL11.glPushMatrix();
+                GL11.glTranslatef(chunkX + Chunk.CHUNK_SIZE/2, chunkY + Chunk.CHUNK_SIZE/2, chunkZ + Chunk.CHUNK_SIZE/2);
+                
+                float distance = (float)Math.sqrt(distanceSquared);
+                
+                if (inFrustum) {
+                    if (distance <= CLOSE_DISTANCE) {
+                        // Green for close chunks in frustum
+                        GL11.glColor3f(0.0f, 1.0f, 0.0f);
+                    } else if (distanceSquared <= renderDistanceSquared) {
+                        // Yellow for far chunks in frustum but within render distance
+                        GL11.glColor3f(1.0f, 1.0f, 0.0f);
+                    } else {
+                        // Red for chunks in frustum but beyond render distance
+                        GL11.glColor3f(1.0f, 0.0f, 0.0f);
+                    }
+                } else {
+                    // Blue for chunks outside frustum
+                    GL11.glColor3f(0.0f, 0.0f, 1.0f);
+                }
+                
+                GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+                mystuff.utils.Shapes.cuboid(Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE);
+                GL11.glPopMatrix();
+                GL11.glPopAttrib();
+            }
         }
-
-        // Now render transparent objects (leaves) after all opaque objects
+        
+        if (Debug.showPlayerInfo()) {
+            System.out.printf("Chunks rendered: %d/%d (%.1f%%), In frustum: %d/%d (%.1f%%)%n", 
+                chunksInView, totalChunks, (chunksInView * 100.0f) / totalChunks,
+                chunksInFrustum, totalChunks, (chunksInFrustum * 100.0f) / totalChunks);
+        }
+        
+        // Render transparent objects last
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-        GL11.glDepthMask(false);
-
-        // Sort trees by distance from camera for proper transparency
-        float cameraX = camera.getX();
-        float cameraY = camera.getY(); 
-        float cameraZ = camera.getZ();
         
-        trees.sort((t1, t2) -> {
-            float dx1 = t1.getX() - cameraX;
-            float dy1 = t1.getY() - cameraY;
-            float dz1 = t1.getZ() - cameraZ;
-            float dist1 = dx1 * dx1 + dy1 * dy1 + dz1 * dz1;
-
-            float dx2 = t2.getX() - cameraX;
-            float dy2 = t2.getY() - cameraY;
-            float dz2 = t2.getZ() - cameraZ;
-            float dist2 = dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
-
-            // Sort back to front
-            return Float.compare(dist2, dist1);
-        });
-
-        // Render trees (they handle their own transparency)
         for (Tree tree : trees) {
-            tree.render();
+            float treeX = tree.getX();
+            float treeY = tree.getY();
+            float treeZ = tree.getZ();
+            
+            // Check if tree is in view frustum before rendering
+            if (camera.isBoxInView(treeX, treeY, treeZ, 1, 5, 1)) {
+                tree.render();
+            }
         }
-
-        // Restore OpenGL state
-        GL11.glDepthMask(true);
+        
         GL11.glDisable(GL11.GL_BLEND);
+        
+        // Restore OpenGL state
+        GL11.glPopAttrib();
     }
     
     // Get block at world coordinates
@@ -229,5 +306,37 @@ public class World {
     // Get chunk at chunk coordinates
     public Chunk getChunk(int chunkX, int chunkY, int chunkZ) {
         return chunks.get(new ChunkKey(chunkX, chunkY, chunkZ));
+    }
+
+    // Helper method to check if a box is in view from a specific position
+    private boolean isBoxInViewFromPosition(
+        float boxX, float boxY, float boxZ,
+        float width, float height, float depth,
+        float viewX, float viewY, float viewZ,
+        float pitch, float yaw
+    ) {
+        // Create temporary matrices for the view from player position
+        GL11.glPushMatrix();
+        GL11.glLoadIdentity();
+        GL11.glRotatef(pitch, 1.0f, 0.0f, 0.0f);
+        GL11.glRotatef(yaw, 0.0f, 1.0f, 0.0f);
+        GL11.glTranslatef(-viewX, -viewY, -viewZ);
+        
+        // Get the modelview matrix from player's perspective
+        float[] modelViewMatrix = new float[16];
+        GL11.glGetFloatv(GL11.GL_MODELVIEW_MATRIX, modelViewMatrix);
+        
+        // Get the current projection matrix
+        float[] projectionMatrix = new float[16];
+        GL11.glGetFloatv(GL11.GL_PROJECTION_MATRIX, projectionMatrix);
+        
+        // Restore the original matrix
+        GL11.glPopMatrix();
+        
+        // Create a temporary frustum for this check
+        Frustum tempFrustum = new Frustum();
+        tempFrustum.update(projectionMatrix, modelViewMatrix);
+        
+        return tempFrustum.isBoxInFrustum(boxX, boxY, boxZ, width, height, depth);
     }
 }

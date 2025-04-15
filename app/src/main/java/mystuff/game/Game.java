@@ -47,7 +47,8 @@ public class Game {
         
         // Initialize world and player after OpenGL context is created
         world = new World(camera);
-        player = new Player(3, 20 * World.BLOCK_SIZE, 3, camera, world);
+        player = new Player(100*World.BLOCK_SIZE, 50 * World.BLOCK_SIZE, 100 * World.BLOCK_SIZE, camera, world);
+        world.setPlayer(player);  // Set player reference in world
         playerRenderer = new PlayerRenderer();
         playerRenderer.init();
         skybox.init();
@@ -86,14 +87,38 @@ public class Game {
             // Update delta time
             updateDeltaTime();
 
+            // Store player position before update
+            float playerX = player.getX();
+            float playerY = player.getY();
+            float playerZ = player.getZ();
+
             // Update game state
             player.update(window, deltaTime);
             world.update(window, deltaTime);
 
-            // Clear buffers
+            // Clear buffers and reset state
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             
-            // Set up camera view
+            // Set up projection matrix
+            GL11.glMatrixMode(GL11.GL_PROJECTION);
+            GL11.glLoadIdentity();
+            float fov = 60.0f;
+            float aspectRatio = (float) window.getWidth() / window.getHeight();
+            float zNear = 0.1f;
+            float zFar = 10000.0f;
+            float yScale = (float) (1.0f / Math.tan(Math.toRadians(fov / 2.0f)));
+            float xScale = yScale / aspectRatio;
+            float frustumLength = zFar - zNear;
+            float[] matrix = new float[16];
+            matrix[0] = xScale;
+            matrix[5] = yScale;
+            matrix[10] = -((zFar + zNear) / frustumLength);
+            matrix[11] = -1;
+            matrix[14] = -((2 * zNear * zFar) / frustumLength);
+            matrix[15] = 0;
+            GL11.glLoadMatrixf(matrix);
+            
+            // Set up modelview matrix
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             GL11.glLoadIdentity();
             
@@ -101,8 +126,25 @@ public class Game {
             GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
             GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
             
-            // Apply camera translation
-            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+            // In no-clip mode, use player position for frustum but camera position for view
+            if (player.isNoClipMode()) {
+                // First translate to player position for frustum calculation
+                GL11.glTranslatef(-playerX, -playerY, -playerZ);
+                camera.update(); // Update frustum at player position
+                
+                // Then reset and translate to camera position for rendering
+                GL11.glLoadIdentity();
+                GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
+                GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
+                GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+            } else {
+                // Normal mode - camera follows player
+                GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+                camera.update();
+            }
+            
+            // Save initial state
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
 
             // Enable depth testing and setup alpha
             GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -110,12 +152,15 @@ public class Game {
             GL11.glEnable(GL11.GL_ALPHA_TEST);
             GL11.glAlphaFunc(GL11.GL_GREATER, 0.1f);
             
+            // Reset color to white
+            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            
             // Render skybox first
             skybox.render();
             
             // Render opaque objects first
             GL11.glDepthMask(true);
-            world.render();  // Render blocks and tree trunks
+            world.render(camera);  // Pass camera to world render
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
 
             // Setup for transparent objects
@@ -126,7 +171,7 @@ public class Game {
             // Now render transparent objects (like leaves)
             // The world's render method will handle this
             
-            // Restore depth mask
+            // Restore depth mask and disable blending
             GL11.glDepthMask(true);
             GL11.glDisable(GL11.GL_BLEND);
 
@@ -148,6 +193,9 @@ public class Game {
             GL11.glPushMatrix();
             GL11.glLoadIdentity();
             
+            // Reset color for UI elements
+            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            
             // Render FPS counter if enabled
             if (Debug.showFPS()) {
                 renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
@@ -166,6 +214,9 @@ public class Game {
             
             // Re-enable depth testing
             GL11.glEnable(GL11.GL_DEPTH_TEST);
+            
+            // Restore initial state
+            GL11.glPopAttrib();
 
             window.update();
         }
