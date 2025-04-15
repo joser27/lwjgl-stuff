@@ -2,6 +2,7 @@ package mystuff.utils;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
@@ -38,9 +39,8 @@ public class TextureLoader {
         // Bind the texture
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
         
-        // Set texture parameters
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        // Set texture parameters for low quality
+        setLowQualityParameters();
         
         // Upload the texture data
         GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width, height, 0,
@@ -71,7 +71,8 @@ public class TextureLoader {
             IntBuffer height = stack.mallocInt(1);
             IntBuffer channels = stack.mallocInt(1);
 
-            // Load the image
+            // Load the image with reduced quality
+            STBImage.stbi_set_flip_vertically_on_load(false); // Disable vertical flip
             ByteBuffer imageData = STBImage.stbi_load(path, width, height, channels, 4);
             if (imageData == null) {
                 System.err.println("Failed to load texture: " + STBImage.stbi_failure_reason());
@@ -86,14 +87,11 @@ public class TextureLoader {
                 // Bind the texture
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 
-                // Set texture parameters
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
+                // Set low quality parameters
+                setLowQualityParameters();
 
-                // Upload the texture data
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width.get(), height.get(), 0,
+                // Upload the texture data with no mipmaps
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB, width.get(), height.get(), 0,
                         GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, imageData);
 
                 // Cache and return the texture ID
@@ -111,6 +109,27 @@ public class TextureLoader {
         }
     }
     
+    /**
+     * Sets texture parameters for low quality/high performance rendering
+     */
+    private static void setLowQualityParameters() {
+        // Use nearest neighbor filtering for that pixelated look
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        
+        // Use repeat mode for texture coordinates
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
+        
+        // Disable texture LOD bias for that classic PS1 look
+        GL14.glTexParameterf(GL11.GL_TEXTURE_2D, GL14.GL_TEXTURE_LOD_BIAS, -2.0f);
+        
+        // Set texture priority to lowest for better memory management
+        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_PRIORITY, 0.1f);
+        
+        // Hint to OpenGL that we prefer speed over quality
+        GL11.glHint(GL11.GL_PERSPECTIVE_CORRECTION_HINT, GL11.GL_FASTEST);
+    }
 
     /**
      * Binds a texture for rendering
