@@ -36,6 +36,9 @@ public class Player extends GameObject {
     public static final float PLAYER_HEIGHT = World.BLOCK_SIZE*2; // Player is taller than wide (2x)
     public static final float PLAYER_DEPTH = World.BLOCK_SIZE;  // Same as width
     
+    // Collision detection radius (in chunks)
+    private int collisionCheckRadius = 1;
+    
     // Store last grounded position to prevent teleporting
     private float lastGroundY = 0;
     
@@ -221,5 +224,20 @@ public class Player extends GameObject {
      */
     public float getCurrentSpeed() {
         return isSprinting ? sprintSpeed : speed;
+    }
+    
+    /**
+     * Gets the collision check radius (in chunks)
+     */
+    public int getCollisionCheckRadius() {
+        return collisionCheckRadius;
+    }
+    
+    /**
+     * Sets the collision check radius (in chunks)
+     */
+    public void setCollisionCheckRadius(int radius) {
+        // Ensure radius is at least 1 to include current chunk
+        this.collisionCheckRadius = Math.max(1, radius);
     }
 } 

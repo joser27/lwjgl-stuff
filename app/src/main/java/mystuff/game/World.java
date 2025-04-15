@@ -14,15 +14,15 @@ import mystuff.engine.Frustum;
 public class World {
     // World constants
     public static final float BLOCK_SIZE = 1.0f;  // Size of each block
-    private static final int WORLD_WIDTH = 100;    // Width of the world in blocks
-    private static final int WORLD_HEIGHT = 100;   // Height of the world in blocks
-    private static final int WORLD_DEPTH = 100;    // Depth of the world in blocks
+    private static final int WORLD_WIDTH = 400;    // Width of the world in blocks
+    private static final int WORLD_HEIGHT = 400;   // Height of the world in blocks
+    private static final int WORLD_DEPTH = 400;    // Depth of the world in blocks
     
     private Map<ChunkKey, Chunk> chunks;
     private List<Tree> trees;
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 3;
+    private static final int RENDER_DISTANCE = 8;
     private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
 
     // Add chunk cache
@@ -258,6 +258,57 @@ public class World {
             }
         }
         return allBlocks;
+    }
+
+    /**
+     * Get blocks only from the chunks surrounding the player's position for efficient collision detection
+     * @param playerX player's X position
+     * @param playerY player's Y position
+     * @param playerZ player's Z position
+     * @param radius number of chunks to check in each direction (1 = current chunk + adjacent)
+     * @return List of blocks that could potentially collide with the player
+     */
+    public List<Block> getNearbyBlocksForCollision(float playerX, float playerY, float playerZ, int radius) {
+        List<Block> nearbyBlocks = new ArrayList<>();
+        
+        // Convert player position to chunk coordinates
+        int centerChunkX = Chunk.worldToChunkCoord(playerX);
+        int centerChunkY = Chunk.worldToChunkCoord(playerY);
+        int centerChunkZ = Chunk.worldToChunkCoord(playerZ);
+        
+        // Get blocks from current chunk and adjacent chunks
+        for (int xOffset = -radius; xOffset <= radius; xOffset++) {
+            for (int yOffset = -radius; yOffset <= radius; yOffset++) {
+                for (int zOffset = -radius; zOffset <= radius; zOffset++) {
+                    int chunkX = centerChunkX + xOffset;
+                    int chunkY = centerChunkY + yOffset;
+                    int chunkZ = centerChunkZ + zOffset;
+                    
+                    ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
+                    Chunk chunk = chunks.get(key);
+                    
+                    if (chunk != null) {
+                        // Add all non-air blocks from this chunk
+                        for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
+                            for (int y = 0; y < Chunk.CHUNK_SIZE; y++) {
+                                for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
+                                    Block block = chunk.getBlock(x, y, z);
+                                    if (block != null && block.getType() != BlockType.AIR) {
+                                        nearbyBlocks.add(block);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (Debug.showPlayerInfo()) {
+            System.out.println("Collision checking with " + nearbyBlocks.size() + " blocks (radius: " + radius + ")");
+        }
+        
+        return nearbyBlocks;
     }
 
     public boolean removeBlock(int x, int y, int z) {

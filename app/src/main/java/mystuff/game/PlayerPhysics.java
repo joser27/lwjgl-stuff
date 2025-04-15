@@ -106,9 +106,19 @@ public class PlayerPhysics {
      * Updates player position with collision detection and physics
      */
     private void updatePlayerPhysics(Player player, Window window, float deltaTime, Camera camera, World world, boolean debugMode) {
-        // Get all blocks from the world
-        List<Block> blocks = world.getAllBlocks();
+        // Performance timing - start
+        long startTime = System.nanoTime();
+        
+        // Get only nearby blocks for collision detection instead of all blocks
+        // This significantly improves performance by checking only a limited number of blocks
+        List<Block> blocks = world.getNearbyBlocksForCollision(
+            player.getX(), player.getY(), player.getZ(), 
+            player.getCollisionCheckRadius()
+        );
         BoundingBox playerBB = player.getBoundingBox();
+        
+        // Record block fetch time
+        long blockFetchTime = System.nanoTime() - startTime;
         
         // Check for reset key
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_R)) {
@@ -278,5 +288,12 @@ public class PlayerPhysics {
 
         // Update camera position to follow player at proper eye level
         camera.setPosition(player.getX(), player.getY() + (Player.PLAYER_HEIGHT * 0.75f), player.getZ());
+        
+        // Performance timing - end
+        long totalTime = System.nanoTime() - startTime;
+        if (debugMode) {
+            System.out.printf("Physics performance: Block fetch: %.2fms, Total physics: %.2fms, Blocks checked: %d%n", 
+                blockFetchTime / 1_000_000.0, totalTime / 1_000_000.0, blocks.size());
+        }
     }
 } 
