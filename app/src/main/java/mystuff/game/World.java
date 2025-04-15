@@ -1,7 +1,9 @@
 package mystuff.game;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import mystuff.engine.Window;
 import org.lwjgl.opengl.GL11;
 import mystuff.engine.Camera;
@@ -9,19 +11,19 @@ import mystuff.engine.Camera;
 public class World {
     // World constants
     public static final float BLOCK_SIZE = 1.0f;  // Size of each block
-    private static final int WORLD_WIDTH = 128;    // Width of the world in blocks
-    private static final int WORLD_HEIGHT = 128;   // Height of the world in blocks
-    private static final int WORLD_DEPTH = 128;    // Depth of the world in blocks
+    private static final int WORLD_WIDTH = 200;    // Width of the world in blocks
+    private static final int WORLD_HEIGHT = 200;   // Height of the world in blocks
+    private static final int WORLD_DEPTH = 200;    // Depth of the world in blocks
     
-    private Block[][][] blocks;
+    private Map<ChunkKey, Chunk> chunks;
     private List<Tree> trees;  // Add list to store trees
     private Camera camera;  // Add camera field
+    private static final int RENDER_DISTANCE = 4; // Number of chunks to render in each direction
 
     public World(Camera camera) {
         this.camera = camera;
-        blocks = new Block[WORLD_WIDTH][WORLD_HEIGHT][WORLD_DEPTH];
-        trees = new ArrayList<>();  // Initialize tree list
-        generateAir();
+        this.chunks = new HashMap<>();
+        this.trees = new ArrayList<>();  // Initialize tree list
         generateWorld();
     }
 
@@ -41,25 +43,23 @@ public class World {
             return false;
         }
         
-        // Convert grid coordinates to world coordinates
-        float worldX = x * BLOCK_SIZE;
-        float worldY = y * BLOCK_SIZE;
-        float worldZ = z * BLOCK_SIZE;
+        // Convert grid coordinates to chunk coordinates
+        int chunkX = Chunk.worldToChunkCoord(x * BLOCK_SIZE);
+        int chunkY = Chunk.worldToChunkCoord(y * BLOCK_SIZE);
+        int chunkZ = Chunk.worldToChunkCoord(z * BLOCK_SIZE);
         
-        // Create and set the block
-        blocks[x][y][z] = new Block(worldX, worldY, worldZ, type);
+        // Get or create the chunk
+        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
+        Chunk chunk = chunks.computeIfAbsent(key, k -> new Chunk(chunkX, chunkY, chunkZ));
+        
+        // Convert to local chunk coordinates
+        int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
+        int localY = Chunk.worldToLocalCoord(y * BLOCK_SIZE);
+        int localZ = Chunk.worldToLocalCoord(z * BLOCK_SIZE);
+        
+        // Set the block in the chunk
+        chunk.setBlock(localX, localY, localZ, type);
         return true;
-    }
-
-    private void generateAir() {
-        // Initialize all blocks to air
-        for(int x = 0; x < WORLD_WIDTH; x++) {
-            for(int y = 0; y < WORLD_HEIGHT; y++) {
-                for(int z = 0; z < WORLD_DEPTH; z++) {
-                    setBlock(x, y, z, BlockType.AIR);
-                }
-            }
-        }
     }
 
     private void generateWorld() {
@@ -90,16 +90,20 @@ public class World {
     }
 
     public void render() {
-        // First render all opaque blocks
-        for(int x = 0; x < WORLD_WIDTH; x++) {
-            for(int y = 0; y < WORLD_HEIGHT; y++) {
-                for(int z = 0; z < WORLD_DEPTH; z++) {
-                    Block block = blocks[x][y][z];
-                    if (block != null && block.getType() != BlockType.AIR) {
-                        block.render();
-                    }
-                }
+        // Calculate which chunks are in render distance
+        int playerChunkX = Chunk.worldToChunkCoord(camera.getX());
+        int playerChunkY = Chunk.worldToChunkCoord(camera.getY());
+        int playerChunkZ = Chunk.worldToChunkCoord(camera.getZ());
+
+        // First render all opaque blocks in visible chunks
+        for (Chunk chunk : chunks.values()) {
+            // Skip chunks outside render distance
+            if (Math.abs(chunk.getChunkX() - playerChunkX) > RENDER_DISTANCE ||
+                Math.abs(chunk.getChunkY() - playerChunkY) > RENDER_DISTANCE ||
+                Math.abs(chunk.getChunkZ() - playerChunkZ) > RENDER_DISTANCE) {
+                continue;
             }
+            chunk.render();
         }
 
         // Now render transparent objects (leaves) after all opaque objects
@@ -137,15 +141,40 @@ public class World {
         GL11.glDisable(GL11.GL_BLEND);
     }
     
-    // Get all blocks in the world
+    // Get block at world coordinates
+    public Block getBlock(int x, int y, int z) {
+        if (x < 0 || x >= WORLD_WIDTH || 
+            y < 0 || y >= WORLD_HEIGHT || 
+            z < 0 || z >= WORLD_DEPTH) {
+            return null;
+        }
+
+        int chunkX = Chunk.worldToChunkCoord(x * BLOCK_SIZE);
+        int chunkY = Chunk.worldToChunkCoord(y * BLOCK_SIZE);
+        int chunkZ = Chunk.worldToChunkCoord(z * BLOCK_SIZE);
+        
+        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
+        Chunk chunk = chunks.get(key);
+        if (chunk == null) return null;
+        
+        int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
+        int localY = Chunk.worldToLocalCoord(y * BLOCK_SIZE);
+        int localZ = Chunk.worldToLocalCoord(z * BLOCK_SIZE);
+        
+        return chunk.getBlock(localX, localY, localZ);
+    }
+
+    // Get all blocks in the world (for collision detection)
     public List<Block> getAllBlocks() {
         List<Block> allBlocks = new ArrayList<>();
-        for(int x = 0; x < WORLD_WIDTH; x++) {
-            for(int y = 0; y < WORLD_HEIGHT; y++) {
-                for(int z = 0; z < WORLD_DEPTH; z++) {
-                    Block block = blocks[x][y][z];
-                    if(block != null && block.getType() != BlockType.AIR) {
-                        allBlocks.add(block);
+        for (Chunk chunk : chunks.values()) {
+            for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
+                for (int y = 0; y < Chunk.CHUNK_SIZE; y++) {
+                    for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
+                        Block block = chunk.getBlock(x, y, z);
+                        if (block != null && block.getType() != BlockType.AIR) {
+                            allBlocks.add(block);
+                        }
                     }
                 }
             }
@@ -153,61 +182,47 @@ public class World {
         return allBlocks;
     }
 
-    /**
-     * Gets a block at the specified grid coordinates
-     * @param x Grid X coordinate
-     * @param y Grid Y coordinate
-     * @param z Grid Z coordinate
-     * @return The block at the specified position, or null if coordinates are invalid
-     */
-    public Block getBlock(int x, int y, int z) {
-        if (x < 0 || x >= WORLD_WIDTH || 
-            y < 0 || y >= WORLD_HEIGHT || 
-            z < 0 || z >= WORLD_DEPTH) {
-            return null;
-        }
-        return blocks[x][y][z];
-    }
-
-    /**
-     * Removes a block at the specified grid coordinates by replacing it with an air block
-     * @param x Grid X coordinate
-     * @param y Grid Y coordinate
-     * @param z Grid Z coordinate
-     * @return true if block was removed, false if coordinates were invalid
-     */
     public boolean removeBlock(int x, int y, int z) {
-        if (x < 0 || x >= WORLD_WIDTH || 
-            y < 0 || y >= WORLD_HEIGHT || 
-            z < 0 || z >= WORLD_DEPTH) {
-            return false;
-        }
-        
-        // Convert grid coordinates to world coordinates for the air block
-        float worldX = x * BLOCK_SIZE;
-        float worldY = y * BLOCK_SIZE;
-        float worldZ = z * BLOCK_SIZE;
-        
-        // Replace with air block
-        blocks[x][y][z] = new Block(worldX, worldY, worldZ, BlockType.AIR);
-        return true;
+        return setBlock(x, y, z, BlockType.AIR);
     }
 
     public void cleanup() {
-        // Cleanup blocks
-        for (Block[][] blockLayer : blocks) {
-            for (Block[] blockRow : blockLayer) {
-                for (Block block : blockRow) {
-                    if (block != null) {
-                        block.cleanup();
-                    }
-                }
-            }
+        // Cleanup chunks
+        for (Chunk chunk : chunks.values()) {
+            chunk.cleanup();
         }
+        chunks.clear();
 
         // Cleanup trees
         for (Tree tree : trees) {
             tree.cleanup();
+        }
+    }
+    
+    // Inner class to use as key for chunk map
+    private static class ChunkKey {
+        private final int x, y, z;
+        
+        public ChunkKey(int x, int y, int z) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+        
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ChunkKey key = (ChunkKey) o;
+            return x == key.x && y == key.y && z == key.z;
+        }
+        
+        @Override
+        public int hashCode() {
+            int result = x;
+            result = 31 * result + y;
+            result = 31 * result + z;
+            return result;
         }
     }
 }
