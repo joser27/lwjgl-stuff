@@ -14,9 +14,9 @@ import mystuff.engine.Frustum;
 public class World {
     // World constants
     public static final float BLOCK_SIZE = 1.0f;  // Size of each block
-    private static final int WORLD_WIDTH = 400;    // Width of the world in blocks
-    private static final int WORLD_HEIGHT = 400;   // Height of the world in blocks
-    private static final int WORLD_DEPTH = 400;    // Depth of the world in blocks
+    private static final int WORLD_WIDTH = 1000;    // Width of the world in blocks
+    private static final int WORLD_HEIGHT = 1000;   // Height of the world in blocks
+    private static final int WORLD_DEPTH = 1000;    // Depth of the world in blocks
     
     private Map<ChunkKey, Chunk> chunks;
     private List<Tree> trees;
