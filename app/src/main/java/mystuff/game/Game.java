@@ -2,71 +2,47 @@ package mystuff.game;
 
 import mystuff.engine.Window;
 import mystuff.engine.Camera;
+import mystuff.engine.IGameLogic;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
-import mystuff.game.BlockType;
 import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
 
-public class Game {
-    private Window window;
+public class Game implements IGameLogic {
     private Camera camera;
     private Player player;
     private World world;
-    private long lastFpsTime;
-    private int fps;
-    private int fpsCount;
-    private long lastFrameTime;
-    private float deltaTime;
-    private int testTextureID = -1;
     private PlayerRenderer playerRenderer;
     private Skybox skybox;
+    private int fps;
+    private int fpsCount;
+    private long lastFpsTime;
+    private float[] frameTimeHistory;
+    private int frameTimeIndex;
+    private static final int FRAME_TIME_SAMPLES = 120; // 2 seconds of history at 60fps
+    private float averageFrameTime;
+    private float maxFrameTime;
 
-    public Game() {
-        window = new Window("3D Game", 1920, 1080); 
-        camera = new Camera(0, 0, 0);  // Camera starts at origin
-        lastFpsTime = System.currentTimeMillis();
-        lastFrameTime = System.nanoTime();
-        fps = 0;
-        fpsCount = 0;
-        deltaTime = 0;
-        skybox = new Skybox();
-    }
-
-    public void run() {
-        try {
-            init();
-            loop();
-        } finally {
-            cleanup();
-        }
-    }
-
-    private void init() {
-        window.init();
+    @Override
+    public void init(Window window) {
+        // Initialize OpenGL state
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         
-        // Initialize world and player after OpenGL context is created
+        // Initialize game objects
+        camera = new Camera(0, 0, 0);
         world = new World(camera);
-        player = new Player(100*World.BLOCK_SIZE, 50 * World.BLOCK_SIZE, 100 * World.BLOCK_SIZE, camera, world);
-        world.setPlayer(player);  // Set player reference in world
+        player = new Player(100*World.BLOCK_SIZE, 50*World.BLOCK_SIZE, 100*World.BLOCK_SIZE, camera, world);
+        world.setPlayer(player);
+        
         playerRenderer = new PlayerRenderer();
         playerRenderer.init();
+        
+        skybox = new Skybox();
         skybox.init();
         
-        // Try to load the dirt texture
-        System.out.println("Loading dirt texture...");
-        testTextureID = mystuff.utils.TextureLoader.loadTexture("resources/textures/dirt.png");
-        if (testTextureID == -1) {
-            System.err.println("Failed to load dirt texture!");
-        } else {
-            System.out.println("Successfully loaded dirt texture with ID: " + testTextureID);
-            // Set texture parameters
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, testTextureID);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
-        }
-
         // Initialize font
         mystuff.utils.FontLoader.init("resources/fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
         
@@ -74,252 +50,171 @@ public class Game {
         GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
         
         // Set up mouse callback
-        GLFW.glfwSetCursorPosCallback(window.getWindowHandle(), (window, xpos, ypos) -> {
+        GLFW.glfwSetCursorPosCallback(window.getWindowHandle(), (windowHandle, xpos, ypos) -> {
             player.handleMouseInput((float)xpos, (float)ypos);
         });
+        
+        lastFpsTime = System.nanoTime();
+        frameTimeHistory = new float[FRAME_TIME_SAMPLES];
+        frameTimeIndex = 0;
+        averageFrameTime = 0;
+        maxFrameTime = 0;
     }
 
-    private void loop() {
-        while (!window.shouldClose()) {
-            // Update keyboard state
-            KeyboardManager.update(window.getWindowHandle());
+    @Override
+    public void input(Window window) {
+        KeyboardManager.update(window.getWindowHandle());
+        
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_ESCAPE)) {
+            GLFW.glfwSetWindowShouldClose(window.getWindowHandle(), true);
+        }
+    }
 
-            // Update delta time
-            updateDeltaTime();
+    @Override
+    public void update(float interval) {
+        player.update(null, interval);
+        world.update(null, interval);
+        updateFPS();
+    }
 
-            // Store player position before update
-            float playerX = player.getX();
-            float playerY = player.getY();
-            float playerZ = player.getZ();
-
-            // Update game state
-            player.update(window, deltaTime);
-            world.update(window, deltaTime);
-
-            // Clear buffers and reset state
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-            
-            // Set up projection matrix
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
+    @Override
+    public void render(Window window) {
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        
+        // Set up projection matrix
+        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GL11.glLoadIdentity();
+        float fov = 60.0f;
+        float aspectRatio = (float) window.getWidth() / window.getHeight();
+        float zNear = 0.1f;
+        float zFar = 10000.0f;
+        float yScale = (float) (1.0f / Math.tan(Math.toRadians(fov / 2.0f)));
+        float xScale = yScale / aspectRatio;
+        float frustumLength = zFar - zNear;
+        float[] matrix = new float[16];
+        matrix[0] = xScale;
+        matrix[5] = yScale;
+        matrix[10] = -((zFar + zNear) / frustumLength);
+        matrix[11] = -1;
+        matrix[14] = -((2 * zNear * zFar) / frustumLength);
+        matrix[15] = 0;
+        GL11.glLoadMatrixf(matrix);
+        
+        // Set up modelview matrix
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glLoadIdentity();
+        
+        // Apply camera rotation
+        GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
+        GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
+        
+        // Handle camera position based on mode
+        if (player.isNoClipMode()) {
+            GL11.glTranslatef(-player.getX(), -player.getY(), -player.getZ());
+            camera.update();
             GL11.glLoadIdentity();
-            float fov = 60.0f;
-            float aspectRatio = (float) window.getWidth() / window.getHeight();
-            float zNear = 0.1f;
-            float zFar = 10000.0f;
-            float yScale = (float) (1.0f / Math.tan(Math.toRadians(fov / 2.0f)));
-            float xScale = yScale / aspectRatio;
-            float frustumLength = zFar - zNear;
-            float[] matrix = new float[16];
-            matrix[0] = xScale;
-            matrix[5] = yScale;
-            matrix[10] = -((zFar + zNear) / frustumLength);
-            matrix[11] = -1;
-            matrix[14] = -((2 * zNear * zFar) / frustumLength);
-            matrix[15] = 0;
-            GL11.glLoadMatrixf(matrix);
-            
-            // Set up modelview matrix
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glLoadIdentity();
-            
-            // Apply camera rotation
             GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
             GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
-            
-            // In no-clip mode, use player position for frustum but camera position for view
-            if (player.isNoClipMode()) {
-                // First translate to player position for frustum calculation
-                GL11.glTranslatef(-playerX, -playerY, -playerZ);
-                camera.update(); // Update frustum at player position
-                
-                // Then reset and translate to camera position for rendering
-                GL11.glLoadIdentity();
-                GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
-                GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
-                GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
-            } else {
-                // Normal mode - camera follows player
-                GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
-                camera.update();
-            }
-            
-            // Save initial state
-            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-
-            // Enable depth testing and setup alpha
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glEnable(GL11.GL_ALPHA_TEST);
-            GL11.glAlphaFunc(GL11.GL_GREATER, 0.1f);
-            
-            // Reset color to white
-            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-            
-            // Render skybox first
-            skybox.render();
-            
-            // Render opaque objects first
-            GL11.glDepthMask(true);
-            world.render(camera);  // Pass camera to world render
-            playerRenderer.render(player, camera.getYaw(), camera.getPitch());
-
-            // Setup for transparent objects
-            GL11.glEnable(GL11.GL_BLEND);
-            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glDepthMask(false);  // Don't write to depth buffer for transparent objects
-            
-            // Now render transparent objects (like leaves)
-            // The world's render method will handle this
-            
-            // Restore depth mask and disable blending
-            GL11.glDepthMask(true);
-            GL11.glDisable(GL11.GL_BLEND);
-
-            // Update FPS counter
-            updateFPS();
-
-            // Check for escape key
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_ESCAPE)) {
-                GLFW.glfwSetWindowShouldClose(window.getWindowHandle(), true);
-            }
-
-            // Render FPS counter and debug info (in 2D)
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glOrtho(0, window.getWidth(), window.getHeight(), 0, -1, 1);
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            
-            // Reset color for UI elements
-            GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-            
-            // Render FPS counter if enabled
-            if (Debug.showFPS()) {
-                renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
-            }
-            
-            // Render position info if debug mode is enabled
-            if (Debug.showPlayerInfo()) {
-                renderText(String.format("Position: %.2f, %.2f, %.2f", 
-                    camera.getX(), camera.getY(), camera.getZ()), 10, 30);
-            }
-            
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            
-            // Re-enable depth testing
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            
-            // Restore initial state
-            GL11.glPopAttrib();
-
-            window.update();
+            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+        } else {
+            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+            camera.update();
         }
+        
+        // Save initial state
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        
+        // Render game objects
+        skybox.render();
+        world.render(camera);
+        playerRenderer.render(player, camera.getYaw(), camera.getPitch());
+        
+        // Render UI
+        renderUI(window);
+        
+        // Restore state
+        GL11.glPopAttrib();
     }
 
-    public void cleanup() {
-        if (player != null) {
-            player.cleanup();
+    private void renderUI(Window window) {
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GL11.glPushMatrix();
+        GL11.glLoadIdentity();
+        GL11.glOrtho(0, window.getWidth(), window.getHeight(), 0, -1, 1);
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glPushMatrix();
+        GL11.glLoadIdentity();
+        
+        // Reset color for UI elements
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        
+        // Render FPS and frame timing info if enabled
+        if (Debug.showFPS()) {
+            renderText(String.format("FPS: %d", fps), window.getWidth() - 150, 30);
+            renderText(String.format("Frame Time: %.1fms (Max: %.1fms)", averageFrameTime, maxFrameTime), 
+                      window.getWidth() - 250, 50);
+            
+            // Visual warning if we detect significant stutters
+            if (maxFrameTime > 32.0f) { // More than 2 frames at 60fps
+                GL11.glColor3f(1.0f, 0.0f, 0.0f); // Red warning
+                renderText("WARNING: Frame time spikes detected!", window.getWidth() - 300, 70);
+                GL11.glColor3f(1.0f, 1.0f, 1.0f); // Reset color
+            }
         }
-        if (world != null) {
-            world.cleanup();
+        
+        // Render position info if debug mode is enabled
+        if (Debug.showPlayerInfo()) {
+            renderText(String.format("Position: %.2f, %.2f, %.2f", 
+                camera.getX(), camera.getY(), camera.getZ()), 10, 30);
         }
-        if (skybox != null) {
-            skybox.cleanup();
-        }
-        window.cleanup();
-        mystuff.utils.TextureLoader.cleanup();
-        mystuff.utils.FontLoader.cleanup();
-        playerRenderer.cleanup();
+        
+        GL11.glPopMatrix();
+        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GL11.glPopMatrix();
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
     }
 
     private void renderText(String text, int x, int y) {
-        // Use our new FontLoader to render text
         mystuff.utils.FontLoader.renderText(text, x, y);
     }
 
     private void updateFPS() {
-        fpsCount++;
-        
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastFpsTime > 1000) {  // Update every second
-            fps = fpsCount;
-            fpsCount = 0;
-            lastFpsTime = currentTime;
-        }
-    }
-
-    private void updateDeltaTime() {
         long currentTime = System.nanoTime();
-        deltaTime = (currentTime - lastFrameTime) / 1_000_000_000.0f; // Convert nanoseconds to seconds
-        lastFrameTime = currentTime;
+        float frameTime = (currentTime - lastFpsTime) / 1_000_000.0f; // Convert to milliseconds
+        lastFpsTime = currentTime;
+        
+        // Update frame time history
+        frameTimeHistory[frameTimeIndex] = frameTime;
+        frameTimeIndex = (frameTimeIndex + 1) % FRAME_TIME_SAMPLES;
+        
+        // Calculate average and max frame time
+        float sum = 0;
+        maxFrameTime = 0;
+        for (float time : frameTimeHistory) {
+            sum += time;
+            if (time > maxFrameTime) maxFrameTime = time;
+        }
+        averageFrameTime = sum / FRAME_TIME_SAMPLES;
+        
+        // Calculate FPS from average frame time
+        fps = (int)(1000.0f / averageFrameTime);
     }
 
-    private void renderTestTexture() {
-        if (testTextureID == -1) return;
-        
-        // Save current matrices and set up orthographic projection for 2D rendering
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        GL11.glOrtho(-1, 1, -1, 1, -1, 1);
-        
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        
-        // Enable 2D texturing
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, testTextureID);
-        
-        // Draw a quad in the center of the screen
-        GL11.glBegin(GL11.GL_QUADS);
-        GL11.glColor3f(1.0f, 1.0f, 1.0f);  // White color to show texture clearly
-        
-        // Bottom-left
-        GL11.glTexCoord2f(0.0f, 0.0f);
-        GL11.glVertex2f(-0.5f, -0.5f);
-        
-        // Bottom-right
-        GL11.glTexCoord2f(1.0f, 0.0f);
-        GL11.glVertex2f(0.5f, -0.5f);
-        
-        // Top-right
-        GL11.glTexCoord2f(1.0f, 1.0f);
-        GL11.glVertex2f(0.5f, 0.5f);
-        
-        // Top-left
-        GL11.glTexCoord2f(0.0f, 1.0f);
-        GL11.glVertex2f(-0.5f, 0.5f);
-        
-        GL11.glEnd();
-        
-        // Restore state
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
-        GL11.glDisable(GL11.GL_TEXTURE_2D);
-        
-        // Restore matrices
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPopMatrix();
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPopMatrix();
-    }
-
-    private void render() {
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        
-        // Just render our test texture for now
-        renderTestTexture();
-        
-        window.update();
+    @Override
+    public void cleanup() {
+        if (player != null) player.cleanup();
+        if (world != null) world.cleanup();
+        if (skybox != null) skybox.cleanup();
+        if (playerRenderer != null) playerRenderer.cleanup();
+        mystuff.utils.TextureLoader.cleanup();
+        mystuff.utils.FontLoader.cleanup();
     }
 
     public static void main(String[] args) {
-        new Game().run();
+        Game game = new Game();
+        mystuff.engine.GameEngine engine = new mystuff.engine.GameEngine("3D Game", 1920, 1080, game, 60);
+        engine.run();
     }
 } 

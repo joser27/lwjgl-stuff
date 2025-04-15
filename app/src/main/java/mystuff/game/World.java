@@ -18,16 +18,16 @@ public class World {
     private static final int WORLD_DEPTH = 200;    // Depth of the world in blocks
     
     private Map<ChunkKey, Chunk> chunks;
-    private List<Tree> trees;  // Add list to store trees
-    private Camera camera;  // Add camera field
-    private Player player;  // Add player reference
-    private static final int RENDER_DISTANCE = 4; // Reduced from 8 to 4 chunks for more obvious culling
+    private List<Tree> trees;
+    private Camera camera;
+    private Player player;
+    private static final int RENDER_DISTANCE = 4;
     private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
 
     public World(Camera camera) {
         this.camera = camera;
         this.chunks = new HashMap<>();
-        this.trees = new ArrayList<>();  // Initialize tree list
+        this.trees = new ArrayList<>();
         generateWorld();
     }
 
@@ -72,37 +72,23 @@ public class World {
     }
 
     private void generateWorld() {
-        // Create ground layer with varying heights
+        int groundHeight = 10; // Height of the flat world
+        
+        // Generate a flat world of dirt blocks
         for(int x = 0; x < WORLD_WIDTH; x++) {
             for(int z = 0; z < WORLD_DEPTH; z++) {
-                // Create some hills using a simple height function
-                int height = (int)(Math.sin(x * 0.1) * 5 + Math.cos(z * 0.1) * 5) + 10;
-                height = Math.max(1, height); // Ensure minimum height of 1
-                
                 // Create columns of blocks
-                for(int y = 0; y < height; y++) {
-                    if (y == height - 1) {
-                        setBlock(x, y, z, BlockType.GRASS); // Top layer is grass
-                    } else if (y > height - 4) {
-                        setBlock(x, y, z, BlockType.DIRT);  // Few layers of dirt below grass
-                    } else {
-                        setBlock(x, y, z, BlockType.STONE); // Stone for deeper layers
+                for(int y = 0; y < groundHeight; y++) {
+                    if (y == groundHeight - 1) {
+                        setBlock(x, y, z, BlockType.DIRT); // Top layer is dirt
                     }
                 }
             }
         }
 
-        // Add some scattered stone blocks above ground
-        for(int i = 0; i < 100; i++) {
-            int x = (int)(Math.random() * WORLD_WIDTH);
-            int z = (int)(Math.random() * WORLD_DEPTH);
-            int y = (int)(Math.random() * 10) + 15; // Place between y=15 and y=25
-            setBlock(x, y, z, BlockType.STONE);
-        }
-
         if (Debug.showPlayerInfo()) {
-            System.out.println("World generated with dimensions: " + 
-                             WORLD_WIDTH + "x" + WORLD_HEIGHT + "x" + WORLD_DEPTH);
+            System.out.println("Flat dirt world generated with dimensions: " + 
+                             WORLD_WIDTH + "x" + groundHeight + "x" + WORLD_DEPTH);
         }
     }
 

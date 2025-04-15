@@ -10,6 +10,7 @@ public class Window {
     private int width, height;
     private String title;
     private boolean isFullscreen;
+    private boolean vSync;
 
     public Window(String title, int width, int height) {
         this(title, width, height, false);
@@ -20,6 +21,7 @@ public class Window {
         this.width = width;
         this.height = height;
         this.isFullscreen = fullscreen;
+        this.vSync = false; 
     }
 
     public void init() {
@@ -58,8 +60,9 @@ public class Window {
         // Make the OpenGL context current
         GLFW.glfwMakeContextCurrent(windowHandle);
         
-        // Enable v-sync
-        GLFW.glfwSwapInterval(1);
+        // Disable v-sync by default
+        GLFW.glfwSwapInterval(0);
+        this.vSync = false;
         
         // Make the window visible
         GLFW.glfwShowWindow(windowHandle);
@@ -108,5 +111,18 @@ public class Window {
 
     public int getHeight() {
         return height;
+    }
+
+    public boolean isVSync() {
+        return vSync;
+    }
+
+    public void setVSync(boolean vSync) {
+        this.vSync = vSync;
+        if (vSync) {
+            GLFW.glfwSwapInterval(1);
+        } else {
+            GLFW.glfwSwapInterval(0);
+        }
     }
 } 
