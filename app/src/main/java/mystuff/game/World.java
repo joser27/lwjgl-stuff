@@ -22,7 +22,7 @@ public class World {
     private List<Tree> trees;
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 8;
+    private static final int RENDER_DISTANCE = 4;
     private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
 
     // Add chunk cache
