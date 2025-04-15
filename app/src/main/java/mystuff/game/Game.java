@@ -9,7 +9,6 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
-import mystuff.utils.FogRenderer;
 
 /**
  * Main game class that implements the game logic interface
@@ -27,13 +26,6 @@ public class Game implements IGameLogic {
     private boolean wireframeMode = false;
     private boolean paused = false;
     private float gameTime = 0;
-    
-    // Fog settings
-    private float fogDensity = 0.03f;
-    private float fogStart = 0.0f;
-    private float fogEnd = 64.0f;
-    private float[] fogColor = {0.6f, 0.7f, 0.8f, 1.0f};
-    private FogRenderer.FogMode fogMode = FogRenderer.FogMode.LINEAR;
     
     // Performance metrics
     private float[] cpuUtilizationHistory = new float[60]; // 1 second at 60fps
@@ -85,10 +77,6 @@ public class Game implements IGameLogic {
             for (int i = 0; i < cpuUtilizationHistory.length; i++) {
                 cpuUtilizationHistory[i] = 0;
             }
-            
-            // Initialize fog
-            FogRenderer.updateFog(fogMode, fogColor, fogDensity, fogStart, fogEnd);
-            FogRenderer.enable();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -123,56 +111,6 @@ public class Game implements IGameLogic {
             }
             if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_RIGHT_BRACKET)) {
                 timer.setTimeScale(Math.min(2.0, timer.getTimeScale() + 0.01));
-            }
-        }
-        
-        // Fog controls
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_O)) {
-            FogRenderer.toggleFog();
-            if (Debug.showPlayerInfo()) {
-                System.out.println("Fog: " + (FogRenderer.isFogEnabled() ? "ON" : "OFF"));
-            }
-        }
-        
-        // Cycle through fog modes with M key
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_M)) {
-            switch (fogMode) {
-                case LINEAR:
-                    fogMode = FogRenderer.FogMode.EXP;
-                    break;
-                case EXP:
-                    fogMode = FogRenderer.FogMode.EXP2;
-                    break;
-                case EXP2:
-                    fogMode = FogRenderer.FogMode.LINEAR;
-                    break;
-            }
-            FogRenderer.setFogMode(fogMode);
-            if (Debug.showPlayerInfo()) {
-                System.out.println("Fog Mode: " + fogMode);
-            }
-        }
-        
-        // Adjust fog parameters
-        if (fogMode == FogRenderer.FogMode.LINEAR) {
-            // Adjust fog start/end distances for LINEAR mode
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_BRACKET)) {
-                fogEnd = Math.max(fogEnd - 1.0f, fogStart + 1.0f);
-                FogRenderer.setFogDistance(fogStart, fogEnd);
-            }
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_RIGHT_BRACKET)) {
-                fogEnd = Math.min(fogEnd + 1.0f, 200.0f);
-                FogRenderer.setFogDistance(fogStart, fogEnd);
-            }
-        } else {
-            // Adjust fog density for EXP/EXP2 modes
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_BRACKET)) {
-                fogDensity = Math.max(fogDensity - 0.001f, 0.001f);
-                FogRenderer.setFogDensity(fogDensity);
-            }
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_RIGHT_BRACKET)) {
-                fogDensity = Math.min(fogDensity + 0.001f, 0.1f);
-                FogRenderer.setFogDensity(fogDensity);
             }
         }
     }
@@ -263,11 +201,6 @@ public class Game implements IGameLogic {
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
-            // Enable fog before rendering world objects
-            if (FogRenderer.isFogEnabled()) {
-                FogRenderer.enable();
-            }
-            
             // Render game objects
             skybox.render();
             world.render(camera);
@@ -275,11 +208,6 @@ public class Game implements IGameLogic {
             // When in no-clip mode, the player body should remain stationary
             // while the camera can move around freely
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
-            
-            // Disable fog for UI rendering
-            if (FogRenderer.isFogEnabled()) {
-                FogRenderer.disable();
-            }
             
             // Render UI
             renderUI(window);
@@ -402,18 +330,6 @@ public class Game implements IGameLogic {
             
             // Game time
             renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
-            
-            // Add fog info to debug display
-            int startY = 150;
-            String fogInfo = String.format("Fog: %s Mode: %s", 
-                FogRenderer.isFogEnabled() ? "ON" : "OFF", 
-                fogMode);
-            renderText(fogInfo, 10, startY);
-            
-            String fogParamInfo = fogMode == FogRenderer.FogMode.LINEAR ?
-                String.format("Fog Distance: %.1f to %.1f", fogStart, fogEnd) :
-                String.format("Fog Density: %.3f", fogDensity);
-            renderText(fogParamInfo, 10, startY + 20);
         }
         
         GL11.glPopMatrix();
