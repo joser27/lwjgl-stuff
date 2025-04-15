@@ -11,6 +11,8 @@ public class Window {
     private String title;
     private boolean isFullscreen;
     private boolean vSync;
+    private String baseTitle; // Store the original title
+    private GameEngine parentEngine; // Reference to the parent engine
 
     public Window(String title, int width, int height) {
         this(title, width, height, false);
@@ -18,10 +20,11 @@ public class Window {
 
     public Window(String title, int width, int height, boolean fullscreen) {
         this.title = title;
+        this.baseTitle = title; // Store original title
         this.width = width;
         this.height = height;
         this.isFullscreen = fullscreen;
-        this.vSync = false; 
+        this.vSync = false;
     }
 
     public void init() {
@@ -34,10 +37,10 @@ public class Window {
         GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, GLFW.GLFW_FALSE);
         GLFW.glfwWindowHint(GLFW.GLFW_RESIZABLE, GLFW.GLFW_TRUE);
         
-        // Use OpenGL 2.1 for maximum compatibility
-        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 2);
-        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 1);
-        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_ANY_PROFILE);
+        // Use OpenGL 3.3 with compatibility profile to support legacy functions
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, 3);
+        GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 3);
+        GLFW.glfwWindowHint(GLFW.GLFW_OPENGL_PROFILE, GLFW.GLFW_OPENGL_COMPAT_PROFILE);
         
         // Create the window
         windowHandle = GLFW.glfwCreateWindow(width, height, title, MemoryUtil.NULL, MemoryUtil.NULL);
@@ -70,11 +73,8 @@ public class Window {
         // Initialize OpenGL capabilities
         GL.createCapabilities();
 
-        // Print OpenGL version and capabilities
-        System.out.println("OpenGL Version: " + GL11.glGetString(GL11.GL_VERSION));
-        System.out.println("OpenGL Vendor: " + GL11.glGetString(GL11.GL_VENDOR));
-        System.out.println("OpenGL Renderer: " + GL11.glGetString(GL11.GL_RENDERER));
-        System.out.println("OpenGL Extensions: " + GL11.glGetString(GL11.GL_EXTENSIONS));
+        // Print basic information (detailed info will be printed in Game.init)
+        System.out.println("Window initialized with OpenGL context");
 
         // Set up initial OpenGL state
         GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -124,5 +124,38 @@ public class Window {
         } else {
             GLFW.glfwSwapInterval(0);
         }
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+        if (windowHandle != 0) {
+            GLFW.glfwSetWindowTitle(windowHandle, title);
+        }
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getBaseTitle() {
+        return baseTitle;
+    }
+
+    public void resetTitle() {
+        setTitle(baseTitle);
+    }
+
+    /**
+     * Sets the parent game engine for this window
+     */
+    public void setParentEngine(GameEngine engine) {
+        this.parentEngine = engine;
+    }
+    
+    /**
+     * Gets the parent game engine
+     */
+    public GameEngine getParentEngine() {
+        return parentEngine;
     }
 } 

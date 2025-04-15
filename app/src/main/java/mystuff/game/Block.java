@@ -14,6 +14,7 @@ public class Block {
     private static int dirtTexture = -1;
     private static int stoneTexture = -1;
     private static int grassTexture = -1;
+    private static boolean texturesInitialized = false;
 
     public enum Face {
         FRONT, BACK, LEFT, RIGHT, TOP, BOTTOM
@@ -32,8 +33,12 @@ public class Block {
             x + halfSize, y + halfSize, z + halfSize
         );
 
-        // Load textures if not already loaded
-        if (dirtTexture == -1) {
+        // Load textures only once
+        initializeTextures();
+    }
+
+    private static synchronized void initializeTextures() {
+        if (!texturesInitialized) {
             System.out.println("Loading block textures...");
             try {
                 // Load dirt texture
@@ -44,7 +49,6 @@ public class Block {
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded dirt texture with ID: " + dirtTexture);
                 }
 
@@ -56,7 +60,6 @@ public class Block {
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded stone texture with ID: " + stoneTexture);
                 }
 
@@ -68,9 +71,13 @@ public class Block {
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
                     GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
                     System.out.println("Successfully loaded grass texture with ID: " + grassTexture);
                 }
+
+                // Unbind texture
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+                
+                texturesInitialized = true;
                 
                 // Check if any textures failed to load
                 if (dirtTexture == -1 || stoneTexture == -1 || grassTexture == -1) {
@@ -85,6 +92,9 @@ public class Block {
 
     public void renderFace(Face face) {
         if (type == BlockType.AIR) return;
+
+        // Enable texturing
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
 
         // Bind appropriate texture based on block type
         int textureID = -1;
@@ -105,6 +115,8 @@ public class Block {
             // Reset color to white for proper texture rendering
             GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
+            // Disable texturing if no texture is available
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
             // Fallback colors if texture loading failed
             switch (type) {
                 case STONE:
@@ -281,20 +293,27 @@ public class Block {
         return boundingBox;
     }
 
+    public static void cleanupTextures() {
+        if (texturesInitialized) {
+            if (dirtTexture != -1) {
+                GL11.glDeleteTextures(dirtTexture);
+                dirtTexture = -1;
+            }
+            if (stoneTexture != -1) {
+                GL11.glDeleteTextures(stoneTexture);
+                stoneTexture = -1;
+            }
+            if (grassTexture != -1) {
+                GL11.glDeleteTextures(grassTexture);
+                grassTexture = -1;
+            }
+            texturesInitialized = false;
+        }
+    }
+
     public void cleanup() {
-        // Delete textures if they were loaded
-        if (dirtTexture != -1) {
-            GL11.glDeleteTextures(dirtTexture);
-            dirtTexture = -1;
-        }
-        if (stoneTexture != -1) {
-            GL11.glDeleteTextures(stoneTexture);
-            stoneTexture = -1;
-        }
-        if (grassTexture != -1) {
-            GL11.glDeleteTextures(grassTexture);
-            grassTexture = -1;
-        }
+        // Individual blocks don't need to clean up textures anymore
+        // Textures are cleaned up statically
     }
 }
 

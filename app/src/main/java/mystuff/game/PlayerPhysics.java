@@ -196,7 +196,7 @@ public class PlayerPhysics {
             }
         }
 
-        // Update camera position to follow player
-        camera.setPosition(player.getX(), player.getY() + 1.0f, player.getZ());
+        // Update camera position to follow player at proper eye level (75% of player height)
+        camera.setPosition(player.getX(), player.getY() + (player.getBoundingBox().getHeight() * 0.75f), player.getZ());
     }
 } 

@@ -12,21 +12,21 @@ import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
 
 public class Player extends GameObject {
-    private float speed = 0.1f;
-    private float size = 1.0f;
+    private float speed = 5.0f;
+    private float size = 10.0f;
     private Camera camera;  // Reference to the camera
-    private float mouseSensitivity = 0.1f;
+    private float mouseSensitivity = 0.2f;
     private boolean firstMouse = true;
     private float lastX = 400, lastY = 300;
     private float velocity = 0.0f;
-    private float gravity = -20.0f;
+    private float gravity = -9.0f;
     private World world;  // Reference to the world
     private boolean isOnGround = false;
-    private float jumpForce = 10.0f;  // Increased jump force
+    private float jumpForce = 8.0f;  // Increased for better Minecraft-like jump
     private boolean debugMode = true;  // Add debug mode
     private boolean wasSpacePressed = false;  // Track space key state
     private static final float GROUND_CHECK_DISTANCE = 0.05f;  // How far below to check for ground
-    private static final float MAX_VELOCITY = 30.0f;  // Maximum velocity (both up and down)
+    private static final float MAX_VELOCITY = 20.0f;  // Reduced maximum velocity
     private BoundingBox boundingBox; // Player's bounding box
     
     // Player dimensions for bounding box
@@ -40,7 +40,7 @@ public class Player extends GameObject {
     // No-clip mode for camera
     private boolean noClipMode = false;
     private boolean wasNPressed = false;
-    private float cameraSpeed = 0.2f;  // Faster camera movement in no-clip mode
+    private float cameraSpeed = 10.0f;  // Increased for faster no-clip movement
 
     private static int playerTexture = -1;
     private static final float TEXTURE_SCALE = 1280.0f;  // Your texture width
@@ -52,8 +52,8 @@ public class Player extends GameObject {
         this.camera = camera;
         this.world = world;
         this.lastGroundY = y;
-        // Set initial camera position to player position
-        camera.setPosition(x, y + size, z); // Eye level is above player position
+        // Set initial camera position to player position at eye level (slightly lower than before)
+        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z); // Eye level at approximately head height
         
         // Create player's bounding box
         updateBoundingBox();
@@ -137,30 +137,30 @@ public class Player extends GameObject {
 
         // Forward/Backward
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
-            dx += forwardX * cameraSpeed;
-            dz -= forwardZ * cameraSpeed;
+            dx += forwardX * cameraSpeed * deltaTime;
+            dz -= forwardZ * cameraSpeed * deltaTime;
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
-            dx -= forwardX * cameraSpeed;
-            dz += forwardZ * cameraSpeed;
+            dx -= forwardX * cameraSpeed * deltaTime;
+            dz += forwardZ * cameraSpeed * deltaTime;
         }
 
         // Strafe Left/Right
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
-            dx -= rightX * cameraSpeed;
-            dz -= rightZ * cameraSpeed;
+            dx -= rightX * cameraSpeed * deltaTime;
+            dz -= rightZ * cameraSpeed * deltaTime;
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
-            dx += rightX * cameraSpeed;
-            dz += rightZ * cameraSpeed;
+            dx += rightX * cameraSpeed * deltaTime;
+            dz += rightZ * cameraSpeed * deltaTime;
         }
         
         // Up/Down
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE)) {
-            dy += cameraSpeed;
+            dy += cameraSpeed * deltaTime;
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT)) {
-            dy -= cameraSpeed;
+            dy -= cameraSpeed * deltaTime;
         }
         
         // Move camera directly without collision
@@ -237,22 +237,22 @@ public class Player extends GameObject {
 
         // Forward/Backward
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
-            dx += forwardX * speed;
-            dz -= forwardZ * speed;
+            dx += forwardX * speed * deltaTime;
+            dz -= forwardZ * speed * deltaTime;
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
-            dx -= forwardX * speed;
-            dz += forwardZ * speed;
+            dx -= forwardX * speed * deltaTime;
+            dz += forwardZ * speed * deltaTime;
         }
 
         // Strafe Left/Right
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
-            dx -= rightX * speed;
-            dz -= rightZ * speed;
+            dx -= rightX * speed * deltaTime;
+            dz -= rightZ * speed * deltaTime;
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
-            dx += rightX * speed;
-            dz += rightZ * speed;
+            dx += rightX * speed * deltaTime;
+            dz += rightZ * speed * deltaTime;
         }
 
         // Calculate vertical movement for this frame
@@ -326,8 +326,8 @@ public class Player extends GameObject {
         // Update the bounding box to the new position
         updateBoundingBox();
 
-        // Update camera position to follow player
-        camera.setPosition(x, y + size, z);
+        // Update camera position to follow player at proper eye level
+        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
     }
 
     @Override

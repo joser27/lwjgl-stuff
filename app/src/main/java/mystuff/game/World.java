@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import mystuff.engine.Window;
 import org.lwjgl.opengl.GL11;
 import mystuff.engine.Camera;
@@ -13,19 +14,34 @@ import mystuff.engine.Frustum;
 public class World {
     // World constants
     public static final float BLOCK_SIZE = 1.0f;  // Size of each block
-    private static final int WORLD_WIDTH = 200;    // Width of the world in blocks
-    private static final int WORLD_HEIGHT = 200;   // Height of the world in blocks
-    private static final int WORLD_DEPTH = 200;    // Depth of the world in blocks
+    private static final int WORLD_WIDTH = 100;    // Width of the world in blocks
+    private static final int WORLD_HEIGHT = 100;   // Height of the world in blocks
+    private static final int WORLD_DEPTH = 100;    // Depth of the world in blocks
     
     private Map<ChunkKey, Chunk> chunks;
     private List<Tree> trees;
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 4;
+    private static final int RENDER_DISTANCE = 3;
     private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
+
+    // Add chunk cache
+    private static final int CHUNK_CACHE_SIZE = 64;
+    private LinkedHashMap<ChunkKey, Chunk> chunkCache;
 
     public World(Camera camera) {
         this.camera = camera;
+        // Initialize chunk cache with LRU eviction
+        this.chunkCache = new LinkedHashMap<ChunkKey, Chunk>(CHUNK_CACHE_SIZE, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<ChunkKey, Chunk> eldest) {
+                if (size() > CHUNK_CACHE_SIZE) {
+                    eldest.getValue().cleanup();
+                    return true;
+                }
+                return false;
+            }
+        };
         this.chunks = new HashMap<>();
         this.trees = new ArrayList<>();
         generateWorld();
@@ -59,7 +75,7 @@ public class World {
         
         // Get or create the chunk
         ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-        Chunk chunk = chunks.computeIfAbsent(key, k -> new Chunk(this, chunkX, chunkY, chunkZ));
+        Chunk chunk = getOrLoadChunk(key);
         
         // Convert to local chunk coordinates
         int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
@@ -217,8 +233,7 @@ public class World {
         int chunkZ = Chunk.worldToChunkCoord(z * BLOCK_SIZE);
         
         ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-        Chunk chunk = chunks.get(key);
-        if (chunk == null) return null;
+        Chunk chunk = getOrLoadChunk(key);
         
         int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
         int localY = Chunk.worldToLocalCoord(y * BLOCK_SIZE);
@@ -260,6 +275,10 @@ public class World {
         for (Tree tree : trees) {
             tree.cleanup();
         }
+        trees.clear();
+
+        // Cleanup block textures
+        Block.cleanupTextures();
     }
     
     // Inner class to use as key for chunk map
@@ -324,5 +343,27 @@ public class World {
         tempFrustum.update(projectionMatrix, modelViewMatrix);
         
         return tempFrustum.isBoxInFrustum(boxX, boxY, boxZ, width, height, depth);
+    }
+
+    private Chunk getOrLoadChunk(ChunkKey key) {
+        // Check cache first
+        Chunk chunk = chunkCache.get(key);
+        if (chunk != null) {
+            return chunk;
+        }
+        
+        // Check main storage
+        chunk = chunks.get(key);
+        if (chunk != null) {
+            // Add to cache
+            chunkCache.put(key, chunk);
+            return chunk;
+        }
+        
+        // Create new chunk
+        chunk = new Chunk(this, key.x, key.y, key.z);
+        chunks.put(key, chunk);
+        chunkCache.put(key, chunk);
+        return chunk;
     }
 }
