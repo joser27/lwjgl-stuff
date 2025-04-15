@@ -185,18 +185,18 @@ public class Game implements IGameLogic {
             GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
             GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
             
-            // Handle camera position based on mode
+            // Set up the camera transform based on current view/mode
             if (player.isNoClipMode()) {
-                GL11.glTranslatef(-player.getX(), -player.getY(), -player.getZ());
-                camera.update();
-                GL11.glLoadIdentity();
-                GL11.glRotatef(camera.getPitch(), 1.0f, 0.0f, 0.0f);
-                GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
+                // In no-clip mode, the camera moves freely (spectator view)
+                // while player body stays at its original position
                 GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             } else {
+                // In normal mode, camera is attached to player
                 GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
-                camera.update();
             }
+            
+            // Update frustum for culling
+            camera.update();
             
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
@@ -204,6 +204,9 @@ public class Game implements IGameLogic {
             // Render game objects
             skybox.render();
             world.render(camera);
+            
+            // When in no-clip mode, the player body should remain stationary
+            // while the camera can move around freely
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
             
             // Render UI
@@ -312,14 +315,21 @@ public class Game implements IGameLogic {
                 String modeText = "Mode: " + (player.isNoClipMode() ? "NoClip" : "Normal");
                 renderText(modeText, 10, 70);
                 
+                // Display sprint status
+                if (player.isSprinting()) {
+                    GL11.glColor3f(0.0f, 1.0f, 0.0f); // Green for sprint
+                    renderText("SPRINTING", 10, 90);
+                    GL11.glColor3f(1.0f, 1.0f, 1.0f); // Reset color
+                }
+                
                 // Display wireframe mode
                 if (wireframeMode) {
-                    renderText("Wireframe: ON", 10, 90);
+                    renderText("Wireframe: ON", 10, 110);
                 }
             }
             
             // Game time
-            renderText(String.format("Game Time: %.1fs", gameTime), 10, 110);
+            renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
         }
         
         GL11.glPopMatrix();

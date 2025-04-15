@@ -40,7 +40,8 @@ public class PlayerRenderer {
     }
 
     public void render(Player player, float yaw, float pitch) {
-        // Only render player model in no-clip mode
+        // Only render player model if texture is loaded AND we're in no-clip mode
+        // In first-person mode, the body should be hidden
         if (playerTexture == -1 || !player.isNoClipMode()) return;
 
         glPushMatrix();
