@@ -4,6 +4,7 @@ import static org.lwjgl.opengl.GL11.*;
 import mystuff.utils.TextureLoader;
 import mystuff.utils.Shapes;
 import mystuff.game.PlayerTextureMap.BodyPart;
+import mystuff.utils.Debug;
 
 public class PlayerRenderer {
     private static int playerTexture = -1;
@@ -12,15 +13,17 @@ public class PlayerRenderer {
     private static final float HEAD_SIZE = 0.5f;
     private static final float NECK_SIZE = 0.25f;
     private static final float NECK_HEIGHT = 0.125f;
-    private static final float BODY_WIDTH = 0.5f;
-    private static final float BODY_HEIGHT = 0.75f;
-    private static final float BODY_DEPTH = 0.25f;
+    private static final float BODY_WIDTH = 0.4f;
+    private static final float BODY_HEIGHT = 0.8f;
+    private static final float BODY_DEPTH = 0.2f;
     private static final float ARM_WIDTH = 0.25f;
     private static final float ARM_HEIGHT = 0.75f;
     private static final float ARM_DEPTH = 0.25f;
     private static final float LEG_WIDTH = 0.25f;
     private static final float LEG_HEIGHT = 0.75f;
     private static final float LEG_DEPTH = 0.25f;
+    private static final int SPHERE_SLICES = 16;
+    private static final int SPHERE_STACKS = 16;
     
     public void init() {
         if (playerTexture == -1) {
@@ -42,12 +45,8 @@ public class PlayerRenderer {
 
         glPushMatrix();
         
-        // Move to player position
-        glTranslatef(player.getX(), player.getY(), player.getZ());
-        
-        // Apply rotations
-        glRotatef(-yaw, 0, 1, 0);  // Rotate around Y axis (left/right)
-        glRotatef(pitch, 1, 0, 0);  // Rotate around X axis (up/down)
+        // Move to player position and adjust height to make feet touch ground
+        glTranslatef(player.getX(), player.getY() - LEG_HEIGHT/3, player.getZ());
         
         // Enable texturing
         glEnable(GL_TEXTURE_2D);
@@ -56,48 +55,78 @@ public class PlayerRenderer {
         // Set color to white to render texture properly
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
-        // Render body parts from top to bottom
+        // Draw head with rotation
         glPushMatrix();
-        glTranslatef(0, BODY_HEIGHT + NECK_HEIGHT + HEAD_SIZE, 0);  // Move to head position
-        renderHead();
+        glTranslatef(0, BODY_HEIGHT + HEAD_SIZE/2, 0); // Position head above body
+        glRotatef(-yaw, 0, 1, 0);  // Rotate around Y axis (left/right)
+        glRotatef(-pitch, 1, 0, 0);  // Invert pitch rotation for natural up/down movement
+        
+        // Set up texture coordinates for the head
+        float startU = 160.0f/1280.0f;
+        float startV = 160.0f/640.0f;
+        float uvWidth = 160.0f/1280.0f;
+        float uvHeight = 160.0f/640.0f;
+
+        // Draw the head using improved spherical UV mapping
+        for (int i = 0; i < SPHERE_STACKS; i++) {
+            float phi1 = (float) Math.PI * i / SPHERE_STACKS;
+            float phi2 = (float) Math.PI * (i + 1) / SPHERE_STACKS;
+            
+            glBegin(GL_QUAD_STRIP);
+            for (int j = 0; j <= SPHERE_SLICES; j++) {
+                float theta = 2.0f * (float) Math.PI * j / SPHERE_SLICES;
+                
+                // Calculate UV coordinates based on spherical position
+                float u = startU + uvWidth * (j / (float) SPHERE_SLICES);
+                float v1 = startV + uvHeight * (i / (float) SPHERE_STACKS);
+                float v2 = startV + uvHeight * ((i + 1) / (float) SPHERE_STACKS);
+                
+                // First vertex
+                float x1 = (float) (Math.sin(phi1) * Math.cos(theta));
+                float y1 = (float) Math.cos(phi1);
+                float z1 = (float) (Math.sin(phi1) * Math.sin(theta));
+                glTexCoord2f(u, v1);
+                glNormal3f(x1, y1, z1);
+                glVertex3f(HEAD_SIZE * x1, HEAD_SIZE * y1, HEAD_SIZE * z1);
+                
+                // Second vertex
+                float x2 = (float) (Math.sin(phi2) * Math.cos(theta));
+                float y2 = (float) Math.cos(phi2);
+                float z2 = (float) (Math.sin(phi2) * Math.sin(theta));
+                glTexCoord2f(u, v2);
+                glNormal3f(x2, y2, z2);
+                glVertex3f(HEAD_SIZE * x2, HEAD_SIZE * y2, HEAD_SIZE * z2);
+            }
+            glEnd();
+        }
         glPopMatrix();
 
+        // Draw body (cuboid) without rotation
         glPushMatrix();
-        glTranslatef(0, BODY_HEIGHT + NECK_HEIGHT/2, 0);  // Move to neck position
-        renderNeck();
-        glPopMatrix();
-
-        glPushMatrix();
-        glTranslatef(0, BODY_HEIGHT/2, 0);  // Move to body position
+        glTranslatef(0, BODY_HEIGHT/2, 0);
         renderBody();
         glPopMatrix();
 
-        // Right Arm
-        glPushMatrix();
-        glTranslatef(BODY_WIDTH + ARM_WIDTH/2, BODY_HEIGHT, 0);
-        renderArm(true);  // true for right arm
-        glPopMatrix();
-
-        // Left Arm
-        glPushMatrix();
-        glTranslatef(-(BODY_WIDTH + ARM_WIDTH/2), BODY_HEIGHT, 0);
-        renderArm(false);  // false for left arm
-        glPopMatrix();
-
-        // Right Leg
-        glPushMatrix();
-        glTranslatef(LEG_WIDTH/2, 0, 0);
-        renderLeg(true);  // true for right leg
-        glPopMatrix();
-
-        // Left Leg
-        glPushMatrix();
-        glTranslatef(-LEG_WIDTH/2, 0, 0);
-        renderLeg(false);  // false for left leg
-        glPopMatrix();
+        // Draw arms and legs without rotation
+        renderArms();
+        renderLegs();
         
         // Cleanup
         glDisable(GL_TEXTURE_2D);
+        
+        // Render bounding box if debug mode is enabled
+        if (Debug.showBoundingBoxes()) {
+            BoundingBox bb = player.getBoundingBox();
+            glPushMatrix();
+            // Reset position since we're already at player's position
+            glColor3f(1.0f, 0.0f, 0.0f);  // Red for player bounding box
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  // Wireframe mode
+            Shapes.cuboid(bb.getWidth(), bb.getHeight(), bb.getDepth());
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Back to fill mode
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);  // Reset color
+            glPopMatrix();
+        }
+
         glPopMatrix();
     }
     
@@ -303,6 +332,34 @@ public class PlayerRenderer {
         glTexCoord2f(part.getEndU(), part.v); glVertex3f(v3[0], v3[1], v3[2]);
         glTexCoord2f(part.u, part.v); glVertex3f(v4[0], v4[1], v4[2]);
         glEnd();
+    }
+    
+    private void renderArms() {
+        // Right Arm
+        glPushMatrix();
+        glTranslatef(BODY_WIDTH + ARM_WIDTH/2, BODY_HEIGHT, 0);
+        renderArm(true);
+        glPopMatrix();
+
+        // Left Arm
+        glPushMatrix();
+        glTranslatef(-(BODY_WIDTH + ARM_WIDTH/2), BODY_HEIGHT, 0);
+        renderArm(false);
+        glPopMatrix();
+    }
+
+    private void renderLegs() {
+        // Right Leg
+        glPushMatrix();
+        glTranslatef(LEG_WIDTH/2, 0, 0);
+        renderLeg(true);
+        glPopMatrix();
+
+        // Left Leg
+        glPushMatrix();
+        glTranslatef(-LEG_WIDTH/2, 0, 0);
+        renderLeg(false);
+        glPopMatrix();
     }
     
     public void cleanup() {

@@ -46,7 +46,7 @@ public class Game {
         window.init();
         
         // Initialize world and player after OpenGL context is created
-        world = new World();
+        world = new World(camera);
         player = new Player(3, 20 * World.BLOCK_SIZE, 3, camera, world);
         playerRenderer = new PlayerRenderer();
         playerRenderer.init();
@@ -104,17 +104,31 @@ public class Game {
             // Apply camera translation
             GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
 
-            // Enable depth testing for 3D rendering
+            // Enable depth testing and setup alpha
             GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GL11.glEnable(GL11.GL_ALPHA_TEST);
+            GL11.glAlphaFunc(GL11.GL_GREATER, 0.1f);
             
             // Render skybox first
             skybox.render();
             
-            // Render the world
-            world.render();
-            
-            // Render the player
+            // Render opaque objects first
+            GL11.glDepthMask(true);
+            world.render();  // Render blocks and tree trunks
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
+
+            // Setup for transparent objects
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glDepthMask(false);  // Don't write to depth buffer for transparent objects
+            
+            // Now render transparent objects (like leaves)
+            // The world's render method will handle this
+            
+            // Restore depth mask
+            GL11.glDepthMask(true);
+            GL11.glDisable(GL11.GL_BLEND);
 
             // Update FPS counter
             updateFPS();
