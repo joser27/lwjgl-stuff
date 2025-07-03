@@ -5,9 +5,7 @@ import org.lwjgl.opengl.GL11;
 import mystuff.engine.GameObject;
 import mystuff.engine.Window;
 import mystuff.engine.Camera;
-import mystuff.utils.Shapes;
 import mystuff.utils.TextureLoader;
-import java.util.List;
 import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
 
@@ -29,18 +27,9 @@ public class Player extends GameObject {
     private boolean wasSpacePressed = false;  // Track space key state
     private static final float GROUND_CHECK_DISTANCE = 0.05f;  // How far below to check for ground
     private static final float MAX_VELOCITY = 20.0f;  // Reduced maximum velocity
-    private BoundingBox boundingBox; // Player's bounding box
     
-    // Player dimensions for bounding box
-    public static final float PLAYER_WIDTH = World.BLOCK_SIZE;  // Slightly narrower than rendered size
-    public static final float PLAYER_HEIGHT = World.BLOCK_SIZE*2; // Player is taller than wide (2x)
-    public static final float PLAYER_DEPTH = World.BLOCK_SIZE;  // Same as width
-    
-    // Collision detection radius (in chunks)
-    private int collisionCheckRadius = 1;
-    
-    // Store last grounded position to prevent teleporting
-    private float lastGroundY = 0;
+    // Player bounding box for entity collision
+    private BoundingBox boundingBox;
     
     // No-clip mode for camera
     private boolean noClipMode = false;
@@ -54,17 +43,19 @@ public class Player extends GameObject {
     private static final float TEXTURE_SCALE = 1280.0f;  // Your texture width
 
     private PlayerRenderer renderer;
-    private PlayerPhysics physics;
+
+    public static final float PLAYER_WIDTH = 1.0f;  // Slightly narrower than rendered size
+    public static final float PLAYER_HEIGHT = 2.0f; // Player is taller than wide (2x)
+    public static final float PLAYER_DEPTH = 1.0f;  // Same as width
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
         this.world = world;
-        this.lastGroundY = y;
         // Set initial camera position to player position at eye level (slightly lower than before)
         camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z); // Eye level at approximately head height
         
-        // Create player's bounding box
+        // Create player's bounding box for entity collision
         updateBoundingBox();
 
         // Load player texture if not already loaded
@@ -84,22 +75,9 @@ public class Player extends GameObject {
             }
         }
 
-        // Initialize physics and renderer
-        this.physics = new PlayerPhysics();
+        // Initialize renderer
         this.renderer = new PlayerRenderer();
         this.renderer.init();
-    }
-    
-    /**
-     * Updates the bounding box to match the player's position
-     */
-    public void updateBoundingBox() {
-        // Create a bounding box that's slightly smaller than the rendered player
-        // for better collision detection
-        boundingBox = BoundingBox.fromCenterAndSize(
-            x, y, z, 
-            PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
-        );
     }
 
     @Override
@@ -111,13 +89,129 @@ public class Player extends GameObject {
             Debug.togglePlayerInfo();
         }
 
-        // Delegate physics updates to the PlayerPhysics class
-        physics.updatePhysics(this, window, deltaTime, camera, world, noClipMode, Debug.showPlayerInfo());
+        // Handle keyboard input for movement
+        handleKeyboardInput(window, deltaTime);
+
+        // Update bounding box position
+        updateBoundingBox();
+        
+        // Heightmap collision and movement
+        if (!noClipMode) {
+            updateHeightmapCollision(deltaTime);
+        }
 
         if (Debug.showPlayerInfo()) {
             System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b NoClip: %b%n", 
                 x, y, z, velocity, isOnGround, noClipMode);
         }
+    }
+    
+    /**
+     * Updates the bounding box to match the player's position
+     */
+    private void updateBoundingBox() {
+        boundingBox = BoundingBox.fromCenterAndSize(
+            x, y, z, 
+            PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
+        );
+    }
+    
+    /**
+     * Handle keyboard input for movement
+     */
+    private void handleKeyboardInput(Window window, float deltaTime) {
+        float currentSpeed = getCurrentSpeed();
+        
+        // Handle sprinting
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT)) {
+            setSprinting(true);
+        } else {
+            setSprinting(false);
+        }
+        
+        // Handle jumping
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE) && isOnGround && !wasSpacePressed) {
+            velocity = jumpForce;
+            isOnGround = false;
+        }
+        wasSpacePressed = KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE);
+        
+        // Handle movement based on camera direction
+        float moveX = 0, moveZ = 0;
+        
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
+            moveZ -= 1; // Forward (negative Z in OpenGL)
+        }
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
+            moveZ += 1; // Backward (positive Z in OpenGL)
+        }
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
+            moveX -= 1; // Left (negative X)
+        }
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
+            moveX += 1; // Right (positive X)
+        }
+        
+        // Normalize movement vector
+        if (moveX != 0 || moveZ != 0) {
+            float length = (float) Math.sqrt(moveX * moveX + moveZ * moveZ);
+            moveX /= length;
+            moveZ /= length;
+        }
+        
+        // Apply movement based on camera direction
+        float yaw = camera.getYaw();
+        float yawRad = (float) Math.toRadians(-yaw); // Invert yaw for correct direction
+        
+        float forwardX = (float) Math.sin(yawRad);
+        float forwardZ = (float) Math.cos(yawRad);
+        float rightX = (float) Math.sin(yawRad + Math.PI / 2);
+        float rightZ = (float) Math.cos(yawRad + Math.PI / 2);
+        
+        // Calculate final movement
+        float finalMoveX = (moveX * rightX + moveZ * forwardX) * currentSpeed * deltaTime;
+        float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * currentSpeed * deltaTime;
+        
+        // Apply movement
+        x += finalMoveX;
+        z += finalMoveZ;
+        
+        // Update camera position to follow player
+        if (!noClipMode) {
+            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+        }
+    }
+    
+    /**
+     * Handle heightmap-based collision and movement
+     */
+    private void updateHeightmapCollision(float deltaTime) {
+        // Get ground height at current position
+        float groundHeight = world.getHeightAt(x, z);
+        
+        // Debug output to see what's happening
+        if (Debug.showPlayerInfo()) {
+            System.out.printf("Player Y: %.2f, Ground Y: %.2f, Velocity: %.2f%n", y, groundHeight, velocity);
+        }
+        
+        // Check if player is on ground
+        isOnGround = Math.abs(y - groundHeight) <= GROUND_CHECK_DISTANCE;
+        
+        // Apply gravity if not on ground
+        if (!isOnGround) {
+            velocity += gravity * deltaTime;
+            velocity = Math.max(velocity, -MAX_VELOCITY); // Limit fall speed
+        } else {
+            // Snap to ground and reset velocity
+            y = groundHeight;
+            velocity = 0;
+        }
+        
+        // Apply velocity
+        y += velocity * deltaTime;
+        
+        // Update camera position to follow player
+        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
     }
 
     @Override
@@ -208,7 +302,7 @@ public class Player extends GameObject {
     public Camera getCamera() {
         return camera;
     }
-
+    
     public float getSprintSpeed() {
         return sprintSpeed;
     }
@@ -221,25 +315,15 @@ public class Player extends GameObject {
         this.isSprinting = sprinting;
     }
     
-    /**
-     * Gets the current active movement speed based on whether sprinting is active
-     */
     public float getCurrentSpeed() {
         return isSprinting ? sprintSpeed : speed;
     }
     
-    /**
-     * Gets the collision check radius (in chunks)
-     */
     public int getCollisionCheckRadius() {
-        return collisionCheckRadius;
+        return 0;
     }
     
-    /**
-     * Sets the collision check radius (in chunks)
-     */
     public void setCollisionCheckRadius(int radius) {
-        // Ensure radius is at least 1 to include current chunk
-        this.collisionCheckRadius = Math.max(1, radius);
+        // No-op
     }
 } 

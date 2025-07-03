@@ -122,7 +122,32 @@ public class PlayerRenderer {
             // Reset position since we're already at player's position
             glColor3f(1.0f, 0.0f, 0.0f);  // Red for player bounding box
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  // Wireframe mode
-            Shapes.cuboid(bb.getWidth(), bb.getHeight(), bb.getDepth());
+            
+            // Draw simple wireframe box
+            float[] size = bb.getSize();
+            float width = size[0];
+            float height = size[1];
+            float depth = size[2];
+            
+            // Draw the 12 edges of the bounding box
+            glBegin(GL_LINES);
+            // Front face
+            glVertex3f(-width/2, -height/2, depth/2); glVertex3f(width/2, -height/2, depth/2);
+            glVertex3f(width/2, -height/2, depth/2); glVertex3f(width/2, height/2, depth/2);
+            glVertex3f(width/2, height/2, depth/2); glVertex3f(-width/2, height/2, depth/2);
+            glVertex3f(-width/2, height/2, depth/2); glVertex3f(-width/2, -height/2, depth/2);
+            // Back face
+            glVertex3f(-width/2, -height/2, -depth/2); glVertex3f(width/2, -height/2, -depth/2);
+            glVertex3f(width/2, -height/2, -depth/2); glVertex3f(width/2, height/2, -depth/2);
+            glVertex3f(width/2, height/2, -depth/2); glVertex3f(-width/2, height/2, -depth/2);
+            glVertex3f(-width/2, height/2, -depth/2); glVertex3f(-width/2, -height/2, -depth/2);
+            // Connecting edges
+            glVertex3f(-width/2, -height/2, depth/2); glVertex3f(-width/2, -height/2, -depth/2);
+            glVertex3f(width/2, -height/2, depth/2); glVertex3f(width/2, -height/2, -depth/2);
+            glVertex3f(width/2, height/2, depth/2); glVertex3f(width/2, height/2, -depth/2);
+            glVertex3f(-width/2, height/2, depth/2); glVertex3f(-width/2, height/2, -depth/2);
+            glEnd();
+            
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  // Back to fill mode
             glColor4f(1.0f, 1.0f, 1.0f, 1.0f);  // Reset color
             glPopMatrix();

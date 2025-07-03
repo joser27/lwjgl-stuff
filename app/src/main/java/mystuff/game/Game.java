@@ -54,7 +54,12 @@ public class Game implements IGameLogic {
             // Initialize game objects
             camera = new Camera(0, 0, 0);
             world = new World(camera);
-            player = new Player(50*World.BLOCK_SIZE, 50*World.BLOCK_SIZE, 50*World.BLOCK_SIZE, camera, world);
+            
+            // Create player at a reasonable starting position on the ground
+            float startX = 50;
+            float startZ = 50;
+            float startY = world.getHeightAt(startX, startZ) + 1.0f; // Start 1 unit above ground
+            player = new Player(startX, startY, startZ, camera, world);
             world.setPlayer(player);
             
             playerRenderer = new PlayerRenderer();
@@ -158,9 +163,8 @@ public class Game implements IGameLogic {
         // Update player first (for responsive controls)
         player.update(null, interval);
         
-        // Update world with player position for chunk loading optimization
-        // This allows the world to prioritize loading chunks near the player
-        world.update(null, interval);
+        // Update world
+        world.update(interval);
         
         // Update fog system
         fogRenderer.update(interval);

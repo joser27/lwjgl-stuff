@@ -1,218 +1,124 @@
 package mystuff.game;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.LinkedHashMap;
-import mystuff.engine.Window;
 import org.lwjgl.opengl.GL11;
 import mystuff.engine.Camera;
 import mystuff.utils.Debug;
-import mystuff.engine.Frustum;
+import java.util.*;
 
 public class World {
-    // World constants
-    public static final float BLOCK_SIZE = 1.0f;  // Size of each block
-    private static final int WORLD_WIDTH = 1000;    // Width of the world in blocks
-    private static final int WORLD_HEIGHT = 1000;   // Height of the world in blocks
-    private static final int WORLD_DEPTH = 1000;    // Depth of the world in blocks
-    
-    private Map<ChunkKey, Chunk> chunks;
+    private HeightmapTerrain terrain;
     private Map<ChunkKey, List<Tree>> chunkTrees; // Trees organized by chunk
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 5;
-    private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
-
-    // Add chunk cache
-    private static final int CHUNK_CACHE_SIZE = 64;
-    private LinkedHashMap<ChunkKey, Chunk> chunkCache;
+    private static final int RENDER_DISTANCE = 8;
+    private static final float TERRAIN_SIZE = 1000.0f; // Size of terrain
 
     public World(Camera camera) {
         this.camera = camera;
-        // Initialize chunk cache with LRU eviction
-        this.chunkCache = new LinkedHashMap<ChunkKey, Chunk>(CHUNK_CACHE_SIZE, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<ChunkKey, Chunk> eldest) {
-                if (size() > CHUNK_CACHE_SIZE) {
-                    eldest.getValue().cleanup();
-                    return true;
-                }
-                return false;
-            }
-        };
-        this.chunks = new HashMap<>();
         this.chunkTrees = new HashMap<>();
+        
+        // Initialize heightmap terrain
+        int terrainWidth = (int) (TERRAIN_SIZE / 2.0f); // 500x500 heightmap
+        int terrainHeight = (int) (TERRAIN_SIZE / 2.0f);
+        this.terrain = new HeightmapTerrain(terrainWidth, terrainHeight);
+        
         generateWorld();
     }
 
-    // Add method to set player reference
-    public void setPlayer(Player player) {
-        this.player = player;
-    }
-
-    /**
-     * Sets a block at the specified grid coordinates
-     * @param x Grid X coordinate
-     * @param y Grid Y coordinate
-     * @param z Grid Z coordinate
-     * @param type Type of block to set
-     * @return true if coordinates are valid and block was set, false otherwise
-     */
-    public boolean setBlock(int x, int y, int z, BlockType type) {
-        // Check if coordinates are within bounds
-        if (x < 0 || x >= WORLD_WIDTH || 
-            y < 0 || y >= WORLD_HEIGHT || 
-            z < 0 || z >= WORLD_DEPTH) {
-            return false;
-        }
-        
-        // Convert grid coordinates to chunk coordinates
-        int chunkX = Chunk.worldToChunkCoord(x * BLOCK_SIZE);
-        int chunkY = Chunk.worldToChunkCoord(y * BLOCK_SIZE);
-        int chunkZ = Chunk.worldToChunkCoord(z * BLOCK_SIZE);
-        
-        // Get or create the chunk
-        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-        Chunk chunk = getOrLoadChunk(key);
-        
-        // Convert to local chunk coordinates
-        int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
-        int localY = Chunk.worldToLocalCoord(y * BLOCK_SIZE);
-        int localZ = Chunk.worldToLocalCoord(z * BLOCK_SIZE);
-        
-        // Set the block in the chunk
-        chunk.setBlock(localX, localY, localZ, type);
-        return true;
-    }
-
     private void generateWorld() {
-        setBlock(55, 12, 32, BlockType.STONE);
-        
-        // Add oak trees with chunk-based management
-        addTreeToChunk(55, 9, 32, TreeType.OAK);
-        addTreeToChunk(70, 9, 32, TreeType.OAK);
-        addTreeToChunk(85, 9, 32, TreeType.OAK);
-        addTreeToChunk(100, 9, 32, TreeType.OAK);
-        addTreeToChunk(115, 9, 32, TreeType.OAK);
-        
-        // Add broadleaf trees
-        addTreeToChunk(130, 9, 32, TreeType.BROADLEAF);
-        addTreeToChunk(145, 9, 32, TreeType.BROADLEAF);
-        addTreeToChunk(160, 9, 32, TreeType.BROADLEAF);
-        addTreeToChunk(175, 9, 32, TreeType.BROADLEAF);
-        
-        // Add more trees in different areas
-        addTreeToChunk(50, 9, 50, TreeType.OAK);
-        addTreeToChunk(65, 9, 50, TreeType.BROADLEAF);
-        addTreeToChunk(80, 9, 50, TreeType.OAK);
-        addTreeToChunk(95, 9, 50, TreeType.BROADLEAF);
-        addTreeToChunk(110, 9, 50, TreeType.OAK);
-        addTreeToChunk(125, 9, 50, TreeType.BROADLEAF);
-        
-        // Add pine trees in a forest area
-        addTreeToChunk(40, 9, 70, TreeType.PINE);
-        addTreeToChunk(55, 9, 70, TreeType.PINE);
-        addTreeToChunk(70, 9, 70, TreeType.PINE);
-        addTreeToChunk(85, 9, 70, TreeType.PINE);
-        addTreeToChunk(100, 9, 70, TreeType.PINE);
-        addTreeToChunk(115, 9, 70, TreeType.PINE);
-        addTreeToChunk(130, 9, 70, TreeType.PINE);
-        addTreeToChunk(145, 9, 70, TreeType.PINE);
-        
-        int groundHeight = 10; // Height of the flat world
-        
-        // Generate a flat world of dirt blocks
-        for(int x = 0; x < WORLD_WIDTH; x++) {
-            for(int z = 0; z < WORLD_DEPTH; z++) {
-                // Create columns of blocks
-                for(int y = 0; y < groundHeight; y++) {
-                    if (y == groundHeight - 1) {
-                        setBlock(x, y, z, BlockType.DIRT); // Top layer is dirt
-                    }
-                }
-            }
-        }
+        // Procedural tree generation based on heightmap
+        generateProceduralTrees();
 
         if (Debug.showPlayerInfo()) {
-            System.out.println("Flat dirt world generated with dimensions: " + 
-                             WORLD_WIDTH + "x" + groundHeight + "x" + WORLD_DEPTH);
+            System.out.println("Heightmap terrain generated with procedural trees");
         }
-    }
-
-    /**
-     * Adds a tree to the appropriate chunk based on its world coordinates
-     */
-    private void addTreeToChunk(int worldX, int worldY, int worldZ) {
-        addTreeToChunk(worldX, worldY, worldZ, TreeType.OAK);
     }
     
     /**
-     * Adds a tree to the appropriate chunk based on its world coordinates and type
+     * Generate trees procedurally based on terrain features
      */
-    private void addTreeToChunk(int worldX, int worldY, int worldZ, TreeType treeType) {
-        // Convert world coordinates to chunk coordinates
-        int chunkX = Chunk.worldToChunkCoord(worldX * BLOCK_SIZE);
-        int chunkY = Chunk.worldToChunkCoord(worldY * BLOCK_SIZE);
-        int chunkZ = Chunk.worldToChunkCoord(worldZ * BLOCK_SIZE);
+    private void generateProceduralTrees() {
+        Random random = new Random(42); // Fixed seed for consistent generation
         
-        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
+        // Get terrain bounds
+        float minX = terrain.getMinX();
+        float maxX = terrain.getMaxX();
+        float minZ = terrain.getMinZ();
+        float maxZ = terrain.getMaxZ();
         
-        // Get or create the tree list for this chunk
-        List<Tree> treesInChunk = chunkTrees.get(key);
-        if (treesInChunk == null) {
-            treesInChunk = new ArrayList<>();
-            chunkTrees.put(key, treesInChunk);
+        // Generate trees across the terrain
+        for (float x = minX; x < maxX; x += 15.0f) { // 15 units spacing
+            for (float z = minZ; z < maxZ; z += 15.0f) {
+                // Skip some positions for natural spacing
+                if (random.nextFloat() > 0.3f) continue; // 30% chance of tree
+                
+                // Get ground height at this position
+                float groundHeight = terrain.getHeightAt(x, z);
+                
+                // Don't place trees on very steep slopes or underwater
+                float[] normal = terrain.getNormalAt(x, z);
+                float slope = 1.0f - normal[1]; // 0 = flat, 1 = vertical
+                
+                if (slope > 0.7f || groundHeight < 8.0f) continue; // Skip steep slopes and low areas
+                
+                // Choose tree type based on height and position
+                TreeType treeType = chooseTreeType(x, z, groundHeight, random);
+                
+                // Add some random offset for natural placement
+                float offsetX = (random.nextFloat() - 0.5f) * 5.0f;
+                float offsetZ = (random.nextFloat() - 0.5f) * 5.0f;
+                
+                addTreeToChunk((int)(x + offsetX), (int)groundHeight, (int)(z + offsetZ), treeType);
+            }
         }
         
-        // Create the appropriate tree type
-        Tree tree;
-        switch (treeType) {
-            case OAK:
-                tree = new OakTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
-                break;
-            case BROADLEAF:
-                tree = new BroadleafTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
-                break;
-            case PINE:
-                tree = new PineTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
-                break;
-            default:
-                tree = new OakTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
-                break;
-        }
-        
-        // Add the tree to this chunk
-        treesInChunk.add(tree);
+        // Generate dense forests in specific areas
+        generateForest(100, 100, 50, TreeType.PINE, random);
+        generateForest(200, 150, 40, TreeType.OAK, random);
+        generateForest(300, 80, 60, TreeType.BROADLEAF, random);
     }
-
-    public void update(Window window, float deltaTime) {
-        // Update trees in visible chunks only
-        float cullingX = (player != null) ? player.getX() : camera.getX();
-        float cullingY = (player != null) ? player.getY() : camera.getY();
-        float cullingZ = (player != null) ? player.getZ() : camera.getZ();
+    
+    /**
+     * Choose tree type based on position and height
+     */
+    private TreeType chooseTreeType(float x, float z, float height, Random random) {
+        // Pine trees prefer higher elevations
+        if (height > 15.0f && random.nextFloat() > 0.6f) {
+            return TreeType.PINE;
+        }
         
-        for (Map.Entry<ChunkKey, List<Tree>> entry : chunkTrees.entrySet()) {
-            ChunkKey key = entry.getKey();
-            List<Tree> treesInChunk = entry.getValue();
+        // Oak trees are common in middle elevations
+        if (height > 10.0f && random.nextFloat() > 0.4f) {
+            return TreeType.OAK;
+        }
+        
+        // Broadleaf trees prefer lower elevations
+        return TreeType.BROADLEAF;
+    }
+    
+    /**
+     * Generate a dense forest in a specific area
+     */
+    private void generateForest(float centerX, float centerZ, int radius, TreeType type, Random random) {
+        for (int i = 0; i < radius * 2; i++) {
+            float angle = random.nextFloat() * 2 * (float)Math.PI;
+            float distance = random.nextFloat() * radius;
             
-            // Calculate distance to chunk center
-            float chunkX = key.x * Chunk.CHUNK_SIZE * BLOCK_SIZE;
-            float chunkY = key.y * Chunk.CHUNK_SIZE * BLOCK_SIZE;
-            float chunkZ = key.z * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float x = centerX + (float)Math.cos(angle) * distance;
+            float z = centerZ + (float)Math.sin(angle) * distance;
             
-            float dx = chunkX - cullingX;
-            float dy = chunkY - cullingY;
-            float dz = chunkZ - cullingZ;
-            float distanceSquared = dx*dx + dy*dy + dz*dz;
-            float updateDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2);
+            // Check if within terrain bounds
+            if (x < terrain.getMinX() || x > terrain.getMaxX() || 
+                z < terrain.getMinZ() || z > terrain.getMaxZ()) {
+                continue;
+            }
             
-            // Only update trees in nearby chunks
-            if (distanceSquared <= updateDistanceSquared) {
-                for (Tree tree : treesInChunk) {
-                    tree.update(window, deltaTime);
-                }
+            float groundHeight = terrain.getHeightAt(x, z);
+            float[] normal = terrain.getNormalAt(x, z);
+            float slope = 1.0f - normal[1];
+            
+            if (slope < 0.7f && groundHeight > 8.0f) {
+                addTreeToChunk((int)x, (int)groundHeight, (int)z, type);
             }
         }
     }
@@ -220,10 +126,6 @@ public class World {
     public void render(Camera camera) {
         // Update camera frustum
         camera.update();
-        
-        int chunksInView = 0;
-        int chunksInFrustum = 0;
-        int totalChunks = chunks.size();
         
         // Save OpenGL state
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
@@ -233,72 +135,9 @@ public class World {
         float cullingY = (player != null) ? player.getY() : camera.getY();
         float cullingZ = (player != null) ? player.getZ() : camera.getZ();
         
-        // Render opaque blocks first
-        for (Chunk chunk : chunks.values()) {
-            // Get chunk bounds
-            float chunkX = chunk.getChunkX() * Chunk.CHUNK_SIZE;
-            float chunkY = chunk.getChunkY() * Chunk.CHUNK_SIZE;
-            float chunkZ = chunk.getChunkZ() * Chunk.CHUNK_SIZE;
-            
-            // Calculate distance from player (not camera) to chunk center
-            float dx = chunkX + Chunk.CHUNK_SIZE/2 - cullingX;
-            float dy = chunkY + Chunk.CHUNK_SIZE/2 - cullingY;
-            float dz = chunkZ + Chunk.CHUNK_SIZE/2 - cullingZ;
-            float distanceSquared = dx*dx + dy*dy + dz*dz;
-            float renderDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE);
-            
-            // Check if chunk is in view frustum relative to player position
-            boolean inFrustum = isBoxInViewFromPosition(
-                chunkX, chunkY, chunkZ,
-                Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE,
-                cullingX, cullingY, cullingZ,
-                camera.getPitch(), camera.getYaw()
-            );
-            
-            if (inFrustum) {
-                chunksInFrustum++;
-                // Only render if within render distance
-                if (distanceSquared <= renderDistanceSquared) {
-                    chunksInView++;
-                    chunk.render();
-                }
-            }
-            
-            // Debug visualization when debug mode is on
-            if (Debug.showBoundingBoxes()) {
-                GL11.glPushAttrib(GL11.GL_CURRENT_BIT | GL11.GL_POLYGON_BIT);
-                GL11.glPushMatrix();
-                GL11.glTranslatef(chunkX + Chunk.CHUNK_SIZE/2, chunkY + Chunk.CHUNK_SIZE/2, chunkZ + Chunk.CHUNK_SIZE/2);
-                
-                float distance = (float)Math.sqrt(distanceSquared);
-                
-                if (inFrustum) {
-                    if (distance <= CLOSE_DISTANCE) {
-                        // Green for close chunks in frustum
-                        GL11.glColor3f(0.0f, 1.0f, 0.0f);
-                    } else if (distanceSquared <= renderDistanceSquared) {
-                        // Yellow for far chunks in frustum but within render distance
-                        GL11.glColor3f(1.0f, 1.0f, 0.0f);
-                    } else {
-                        // Red for chunks in frustum but beyond render distance
-                        GL11.glColor3f(1.0f, 0.0f, 0.0f);
-                    }
-                } else {
-                    // Blue for chunks outside frustum
-                    GL11.glColor3f(0.0f, 0.0f, 1.0f);
-                }
-                
-                GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
-                mystuff.utils.Shapes.cuboid(Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE, Chunk.CHUNK_SIZE);
-                GL11.glPopMatrix();
-                GL11.glPopAttrib();
-            }
-        }
-        
-        if (Debug.showPlayerInfo()) {
-            System.out.printf("Chunks rendered: %d/%d (%.1f%%), In frustum: %d/%d (%.1f%%)%n", 
-                chunksInView, totalChunks, (chunksInView * 100.0f) / totalChunks,
-                chunksInFrustum, totalChunks, (chunksInFrustum * 100.0f) / totalChunks);
+        // Render terrain
+        if (terrain != null) {
+            terrain.render(cullingX, cullingZ, RENDER_DISTANCE * 32.0f); // 32 units per chunk
         }
         
         // Render transparent objects last
@@ -311,15 +150,15 @@ public class World {
             List<Tree> treesInChunk = entry.getValue();
             
             // Calculate distance to chunk center
-            float chunkX = key.x * Chunk.CHUNK_SIZE * BLOCK_SIZE;
-            float chunkY = key.y * Chunk.CHUNK_SIZE * BLOCK_SIZE;
-            float chunkZ = key.z * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float chunkX = key.x * 32.0f; // 32 units per chunk
+            float chunkY = key.y * 32.0f;
+            float chunkZ = key.z * 32.0f;
             
             float dx = chunkX - cullingX;
             float dy = chunkY - cullingY;
             float dz = chunkZ - cullingZ;
             float distanceSquared = dx*dx + dy*dy + dz*dz;
-            float treeRenderDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2);
+            float treeRenderDistanceSquared = (RENDER_DISTANCE * 32.0f * 2) * (RENDER_DISTANCE * 32.0f * 2);
             
             // Only render trees in nearby chunks
             if (distanceSquared <= treeRenderDistanceSquared) {
@@ -353,206 +192,133 @@ public class World {
         // Restore OpenGL state
         GL11.glPopAttrib();
     }
+
+    public void update(float deltaTime) {
+        // Update trees
+        for (List<Tree> treesInChunk : chunkTrees.values()) {
+            for (Tree tree : treesInChunk) {
+                tree.update(null, deltaTime); // Tree doesn't need window reference
+            }
+        }
+    }
+
+    public void setPlayer(Player player) {
+        this.player = player;
+    }
+
+    public float getHeightAt(float x, float z) {
+        if (terrain != null) {
+            return terrain.getHeightAt(x, z);
+        }
+        return 10.0f; // Default height
+    }
+
+    public boolean isOnGround(float x, float y, float z, float tolerance) {
+        if (terrain != null) {
+            return terrain.isOnGround(x, y, z, tolerance);
+        }
+        return Math.abs(y - 10.0f) <= tolerance; // Default ground check
+    }
+
+    public float[] getNormalAt(float x, float z) {
+        if (terrain != null) {
+            return terrain.getNormalAt(x, z);
+        }
+        return new float[]{0, 1, 0}; // Default normal (flat ground)
+    }
+
+    public float getMinX() { 
+        return terrain != null ? terrain.getMinX() : 0; 
+    }
     
-    // Get block at world coordinates
-    public Block getBlock(int x, int y, int z) {
-        if (x < 0 || x >= WORLD_WIDTH || 
-            y < 0 || y >= WORLD_HEIGHT || 
-            z < 0 || z >= WORLD_DEPTH) {
-            return null;
-        }
-
-        int chunkX = Chunk.worldToChunkCoord(x * BLOCK_SIZE);
-        int chunkY = Chunk.worldToChunkCoord(y * BLOCK_SIZE);
-        int chunkZ = Chunk.worldToChunkCoord(z * BLOCK_SIZE);
-        
-        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-        Chunk chunk = getOrLoadChunk(key);
-        
-        int localX = Chunk.worldToLocalCoord(x * BLOCK_SIZE);
-        int localY = Chunk.worldToLocalCoord(y * BLOCK_SIZE);
-        int localZ = Chunk.worldToLocalCoord(z * BLOCK_SIZE);
-        
-        return chunk.getBlock(localX, localY, localZ);
+    public float getMaxX() { 
+        return terrain != null ? terrain.getMaxX() : TERRAIN_SIZE; 
     }
-
-    // Get all blocks in the world (for collision detection)
-    public List<Block> getAllBlocks() {
-        List<Block> allBlocks = new ArrayList<>();
-        for (Chunk chunk : chunks.values()) {
-            for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
-                for (int y = 0; y < Chunk.CHUNK_SIZE; y++) {
-                    for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
-                        Block block = chunk.getBlock(x, y, z);
-                        if (block != null && block.getType() != BlockType.AIR) {
-                            allBlocks.add(block);
-                        }
-                    }
-                }
-            }
-        }
-        return allBlocks;
+    
+    public float getMinZ() { 
+        return terrain != null ? terrain.getMinZ() : 0; 
     }
-
-    /**
-     * Get blocks only from the chunks surrounding the player's position for efficient collision detection
-     * @param playerX player's X position
-     * @param playerY player's Y position
-     * @param playerZ player's Z position
-     * @param radius number of chunks to check in each direction (1 = current chunk + adjacent)
-     * @return List of blocks that could potentially collide with the player
-     */
-    public List<Block> getNearbyBlocksForCollision(float playerX, float playerY, float playerZ, int radius) {
-        List<Block> nearbyBlocks = new ArrayList<>();
-        
-        // Convert player position to chunk coordinates
-        int centerChunkX = Chunk.worldToChunkCoord(playerX);
-        int centerChunkY = Chunk.worldToChunkCoord(playerY);
-        int centerChunkZ = Chunk.worldToChunkCoord(playerZ);
-        
-        // Get blocks from current chunk and adjacent chunks
-        for (int xOffset = -radius; xOffset <= radius; xOffset++) {
-            for (int yOffset = -radius; yOffset <= radius; yOffset++) {
-                for (int zOffset = -radius; zOffset <= radius; zOffset++) {
-                    int chunkX = centerChunkX + xOffset;
-                    int chunkY = centerChunkY + yOffset;
-                    int chunkZ = centerChunkZ + zOffset;
-                    
-                    ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
-                    Chunk chunk = chunks.get(key);
-                    
-                    if (chunk != null) {
-                        // Add all non-air blocks from this chunk
-                        for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
-                            for (int y = 0; y < Chunk.CHUNK_SIZE; y++) {
-                                for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
-                                    Block block = chunk.getBlock(x, y, z);
-                                    if (block != null && block.getType() != BlockType.AIR) {
-                                        nearbyBlocks.add(block);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        if (Debug.showPlayerInfo()) {
-            System.out.println("Collision checking with " + nearbyBlocks.size() + " blocks (radius: " + radius + ")");
-        }
-        
-        return nearbyBlocks;
-    }
-
-    public boolean removeBlock(int x, int y, int z) {
-        return setBlock(x, y, z, BlockType.AIR);
+    
+    public float getMaxZ() { 
+        return terrain != null ? terrain.getMaxZ() : TERRAIN_SIZE; 
     }
 
     public void cleanup() {
-        // Cleanup chunks
-        for (Chunk chunk : chunks.values()) {
-            chunk.cleanup();
+        // Cleanup terrain
+        if (terrain != null) {
+            terrain.cleanup();
         }
-        chunks.clear();
-
+        
         // Cleanup trees
-        Tree.cleanupSharedResources();
-        OakTree.cleanupOakResources();
-        BroadleafTree.cleanupBroadleafResources();
-        PineTree.cleanupPineResources();
         for (List<Tree> treesInChunk : chunkTrees.values()) {
-            treesInChunk.clear();
+            for (Tree tree : treesInChunk) {
+                tree.cleanup();
+            }
         }
         chunkTrees.clear();
-
-        // Cleanup block textures
-        Block.cleanupTextures();
     }
-    
-    // Inner class to use as key for chunk map
-    private static class ChunkKey {
-        private final int x, y, z;
+
+    // Tree management methods
+    private void addTreeToChunk(int x, int y, int z, TreeType type) {
+        ChunkKey key = new ChunkKey(x / 32, y / 32, z / 32);
+        chunkTrees.computeIfAbsent(key, k -> new ArrayList<>());
         
-        public ChunkKey(int x, int y, int z) {
+        Tree tree = createTree(type, x, y, z);
+        if (tree != null) {
+            chunkTrees.get(key).add(tree);
+        }
+    }
+
+    private Tree createTree(TreeType type, int x, int y, int z) {
+        switch (type) {
+            case OAK:
+                return new OakTree(x, y, z);
+            case BROADLEAF:
+                return new BroadleafTree(x, y, z);
+            case PINE:
+                return new PineTree(x, y, z);
+            default:
+                return new OakTree(x, y, z); // Default to oak tree
+        }
+    }
+
+    // Frustum culling helper method
+    private boolean isBoxInViewFromPosition(float boxX, float boxY, float boxZ, 
+                                          float boxWidth, float boxHeight, float boxDepth,
+                                          float viewX, float viewY, float viewZ, 
+                                          float pitch, float yaw) {
+        // Simple distance-based culling for now
+        float dx = boxX + boxWidth/2 - viewX;
+        float dy = boxY + boxHeight/2 - viewY;
+        float dz = boxZ + boxDepth/2 - viewZ;
+        float distanceSquared = dx*dx + dy*dy + dz*dz;
+        
+        // Check if box is within reasonable viewing distance
+        float maxDistance = 200.0f; // Adjust based on your needs
+        return distanceSquared <= maxDistance * maxDistance;
+    }
+
+    // ChunkKey class for organizing trees
+    private static class ChunkKey {
+        final int x, y, z;
+        
+        ChunkKey(int x, int y, int z) {
             this.x = x;
             this.y = y;
             this.z = z;
         }
         
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            ChunkKey key = (ChunkKey) o;
-            return x == key.x && y == key.y && z == key.z;
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            ChunkKey chunkKey = (ChunkKey) obj;
+            return x == chunkKey.x && y == chunkKey.y && z == chunkKey.z;
         }
         
         @Override
         public int hashCode() {
-            int result = x;
-            result = 31 * result + y;
-            result = 31 * result + z;
-            return result;
+            return Objects.hash(x, y, z);
         }
-    }
-
-    // Get chunk at chunk coordinates
-    public Chunk getChunk(int chunkX, int chunkY, int chunkZ) {
-        return chunks.get(new ChunkKey(chunkX, chunkY, chunkZ));
-    }
-
-    // Helper method to check if a box is in view from a specific position
-    private boolean isBoxInViewFromPosition(
-        float boxX, float boxY, float boxZ,
-        float width, float height, float depth,
-        float viewX, float viewY, float viewZ,
-        float pitch, float yaw
-    ) {
-        // Create temporary matrices for the view from player position
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        GL11.glRotatef(pitch, 1.0f, 0.0f, 0.0f);
-        GL11.glRotatef(yaw, 0.0f, 1.0f, 0.0f);
-        GL11.glTranslatef(-viewX, -viewY, -viewZ);
-        
-        // Get the modelview matrix from player's perspective
-        float[] modelViewMatrix = new float[16];
-        GL11.glGetFloatv(GL11.GL_MODELVIEW_MATRIX, modelViewMatrix);
-        
-        // Get the current projection matrix
-        float[] projectionMatrix = new float[16];
-        GL11.glGetFloatv(GL11.GL_PROJECTION_MATRIX, projectionMatrix);
-        
-        // Restore the original matrix
-        GL11.glPopMatrix();
-        
-        // Create a temporary frustum for this check
-        Frustum tempFrustum = new Frustum();
-        tempFrustum.update(projectionMatrix, modelViewMatrix);
-        
-        return tempFrustum.isBoxInFrustum(boxX, boxY, boxZ, width, height, depth);
-    }
-
-    private Chunk getOrLoadChunk(ChunkKey key) {
-        // Check cache first
-        Chunk chunk = chunkCache.get(key);
-        if (chunk != null) {
-            return chunk;
-        }
-        
-        // Check main storage
-        chunk = chunks.get(key);
-        if (chunk != null) {
-            // Add to cache
-            chunkCache.put(key, chunk);
-            return chunk;
-        }
-        
-        // Create new chunk
-        chunk = new Chunk(this, key.x, key.y, key.z);
-        chunks.put(key, chunk);
-        chunkCache.put(key, chunk);
-        return chunk;
     }
 }
