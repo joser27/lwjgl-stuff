@@ -6,23 +6,31 @@ import mystuff.utils.Debug;
 import java.util.*;
 
 public class World {
-    private HeightmapTerrain terrain;
+    private SplatmapTerrain terrain;
     private Map<ChunkKey, List<Tree>> chunkTrees; // Trees organized by chunk
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 2;
-    private static final float TERRAIN_SIZE = 1000.0f; // Size of terrain
-    private static final float WORLD_BORDER_MARGIN = 50.0f; // Safe zone from edge
+    private WorldBorder worldBorder; // Visual world border
+    private static final int RENDER_DISTANCE = 4; // Increased render distance
+    private static final float TERRAIN_SIZE = 512.0f; // Match splatmap size (512x512 pixels)
+    private static final float WORLD_BORDER_MARGIN = 50.0f; // Increased margin for larger terrain
     private static final float WORLD_BORDER_FORCE = 20.0f; // Force to push player back
 
     public World(Camera camera) {
         this.camera = camera;
         this.chunkTrees = new HashMap<>();
         
-        // Initialize heightmap terrain
+        // Initialize splatmap terrain
         int terrainWidth = (int) (TERRAIN_SIZE / 2.0f); // 500x500 heightmap
         int terrainHeight = (int) (TERRAIN_SIZE / 2.0f);
-        this.terrain = new HeightmapTerrain(terrainWidth, terrainHeight);
+        this.terrain = new SplatmapTerrain(terrainWidth, terrainHeight);
+        
+        // Initialize world border
+        float borderMinX = terrain.getMinX() + WORLD_BORDER_MARGIN;
+        float borderMaxX = terrain.getMaxX() - WORLD_BORDER_MARGIN;
+        float borderMinZ = terrain.getMinZ() + WORLD_BORDER_MARGIN;
+        float borderMaxZ = terrain.getMaxZ() - WORLD_BORDER_MARGIN;
+        this.worldBorder = new WorldBorder(borderMinX, borderMaxX, borderMinZ, borderMaxZ);
         
         generateWorld();
     }
@@ -191,6 +199,11 @@ public class World {
         
         GL11.glDisable(GL11.GL_BLEND);
         
+        // Render world border (always render, no culling needed)
+        if (worldBorder != null) {
+            worldBorder.render();
+        }
+        
         // Restore OpenGL state
         GL11.glPopAttrib();
     }
@@ -311,6 +324,11 @@ public class World {
             }
         }
         chunkTrees.clear();
+        
+        // Cleanup world border
+        if (worldBorder != null) {
+            worldBorder.cleanup();
+        }
     }
 
     // Tree management methods
