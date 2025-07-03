@@ -70,6 +70,9 @@ public class Game implements IGameLogic {
             // Set up mouse cursor
             GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             
+            // Disable key repeat for toggle keys to prevent multiple triggers
+            GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_STICKY_KEYS, GLFW.GLFW_TRUE);
+            
             // Set up mouse callback
             GLFW.glfwSetCursorPosCallback(window.getWindowHandle(), (windowHandle, xpos, ypos) -> {
                 player.handleMouseInput((float)xpos, (float)ypos);
@@ -101,6 +104,17 @@ public class Game implements IGameLogic {
         // Fog type cycling for testing
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_T)) {
             cycleFogType();
+        }
+        
+        // No-clip mode toggle
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_N)) {
+            System.out.println("Game: N key detected!");
+            player.toggleNoClipMode();
+        }
+        
+        // Debug: Check if N key is being pressed at all
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_N)) {
+            System.out.println("Game: N key is currently pressed");
         }
         
         // Horror intensity control
@@ -465,6 +479,6 @@ public class Game implements IGameLogic {
         int nextIndex = (currentIndex + 1) % types.length;
         fogRenderer.setFogType(types[nextIndex]);
         
-        System.out.println("Fog type changed to: " + types[nextIndex]);
+        System.out.println("T key pressed! Fog type changed to: " + types[nextIndex]);
     }
 } 

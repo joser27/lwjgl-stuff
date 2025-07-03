@@ -21,7 +21,8 @@ public class KeyboardManager {
     }
 
     public static boolean isKeyJustPressed(int key) {
-        return currentKeys[key] && !previousKeys[key];
+        boolean result = currentKeys[key] && !previousKeys[key];
+        return result;
     }
 
     public static boolean isKeyReleased(int key) {

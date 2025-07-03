@@ -16,6 +16,8 @@ A 3D voxel-based Minecraft-like game built with Java and LWJGL (Lightweight Java
 - **Sprint System**: Hold Shift while moving forward to sprint
 - **Performance Monitoring**: Real-time FPS, frame time, and CPU utilization
 - **Debug Tools**: Comprehensive debugging features for development
+- **Atmospheric Fog System**: Multiple fog types for horror atmosphere (Silent Hill style)
+- **Dynamic Horror Effects**: Adjustable fog intensity and horror levels
 
 ## How to Run
 
@@ -53,6 +55,14 @@ The game will launch in a 1920x1080 window targeting 144 FPS.
 | **F** | Toggle Wireframe Mode |
 | **N** | Toggle NoClip Mode (Spectator) |
 | **R** | Reset Player Position to (5, 5, 5) |
+| **T** | Cycle Through Fog Types |
+
+### Fog Controls
+| Key | Action |
+|-----|--------|
+| **T** | Cycle Through Fog Types (None, Light Mist, Dense Fog, Dark Mist, Storm Fog, Night Fog) |
+| **Up Arrow** | Increase Horror Intensity |
+| **Down Arrow** | Decrease Horror Intensity |
 
 ### Time Controls
 | Key | Action |
@@ -116,6 +126,8 @@ The game includes comprehensive debug tools accessible via **F3**:
 - **Skybox**: Beautiful sky rendering with multiple skybox options
 - **Frustum Culling**: Optimized rendering only shows visible chunks
 - **Collision System**: Precise block-based collision detection
+- **Atmospheric Fog**: 6 different fog types for horror atmosphere
+- **Tree Variety**: Oak, Broadleaf, and Pine trees with different sizes and textures
 
 ## Technical Details
 

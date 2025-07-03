@@ -44,7 +44,7 @@ public class Player extends GameObject {
     
     // No-clip mode for camera
     private boolean noClipMode = false;
-    private boolean wasNPressed = false;
+    private boolean wasNoClipMode = false; // Track previous state
     private float cameraSpeed = 0.5f;  // Adjusted for delta-time independent movement in no-clip mode
     
     // Store last position before entering no-clip mode
@@ -104,19 +104,6 @@ public class Player extends GameObject {
 
     @Override
     public void update(Window window, float deltaTime) {
-        // Check for no-clip mode toggle
-        boolean wasNoClipMode = noClipMode;
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_N)) {
-            noClipMode = !noClipMode;
-            
-            // If we're entering no-clip mode, update camera position to player's eye level
-            if (!wasNoClipMode && noClipMode) {
-                camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
-            }
-            
-            if (Debug.showPlayerInfo()) System.out.println("No-clip mode: " + (noClipMode ? "ON" : "OFF"));
-        }
-        
         // Add debug mode toggle with F3
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
             Debug.toggleDebugMode();
@@ -173,6 +160,21 @@ public class Player extends GameObject {
     
     public void setNoClipMode(boolean noClipMode) {
         this.noClipMode = noClipMode;
+    }
+    
+    /**
+     * Toggle no-clip mode and handle camera position updates
+     */
+    public void toggleNoClipMode() {
+        wasNoClipMode = noClipMode; // Store current state before changing
+        noClipMode = !noClipMode;
+        
+        // If we're entering no-clip mode, update camera position to player's eye level
+        if (!wasNoClipMode && noClipMode) {
+            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+        }
+        
+        System.out.println("N key pressed! No-clip mode: " + (noClipMode ? "ON" : "OFF"));
     }
     
     public float getSpeed() {

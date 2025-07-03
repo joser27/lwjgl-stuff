@@ -148,9 +148,7 @@ public class FogRenderer {
         
         // Set fog hint for performance
         glHint(GL_FOG_HINT, GL_FASTEST);
-        
-        System.out.println("Fog applied: " + currentFogType + " (start: " + fogStart + ", end: " + fogEnd + 
-                          ", color: [" + fogColor[0] + ", " + fogColor[1] + ", " + fogColor[2] + "])");
+
     }
     
     /**
