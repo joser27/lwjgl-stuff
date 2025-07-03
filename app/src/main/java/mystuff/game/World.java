@@ -10,8 +10,10 @@ public class World {
     private Map<ChunkKey, List<Tree>> chunkTrees; // Trees organized by chunk
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 8;
+    private static final int RENDER_DISTANCE = 2;
     private static final float TERRAIN_SIZE = 1000.0f; // Size of terrain
+    private static final float WORLD_BORDER_MARGIN = 50.0f; // Safe zone from edge
+    private static final float WORLD_BORDER_FORCE = 20.0f; // Force to push player back
 
     public World(Camera camera) {
         this.camera = camera;
@@ -204,6 +206,59 @@ public class World {
 
     public void setPlayer(Player player) {
         this.player = player;
+    }
+    
+    /**
+     * Check if position is within world borders and apply border force if needed
+     */
+    public boolean checkWorldBorder(float x, float z) {
+        float minX = terrain.getMinX() + WORLD_BORDER_MARGIN;
+        float maxX = terrain.getMaxX() - WORLD_BORDER_MARGIN;
+        float minZ = terrain.getMinZ() + WORLD_BORDER_MARGIN;
+        float maxZ = terrain.getMaxZ() - WORLD_BORDER_MARGIN;
+        
+        return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
+    }
+    
+    /**
+     * Get world border bounds (safe playable area)
+     */
+    public float[] getWorldBorderBounds() {
+        float minX = terrain.getMinX() + WORLD_BORDER_MARGIN;
+        float maxX = terrain.getMaxX() - WORLD_BORDER_MARGIN;
+        float minZ = terrain.getMinZ() + WORLD_BORDER_MARGIN;
+        float maxZ = terrain.getMaxZ() - WORLD_BORDER_MARGIN;
+        
+        return new float[]{minX, maxX, minZ, maxZ};
+    }
+    
+    /**
+     * Apply world border force to push player back into safe zone
+     */
+    public float[] applyWorldBorderForce(float x, float z) {
+        float minX = terrain.getMinX() + WORLD_BORDER_MARGIN;
+        float maxX = terrain.getMaxX() - WORLD_BORDER_MARGIN;
+        float minZ = terrain.getMinZ() + WORLD_BORDER_MARGIN;
+        float maxZ = terrain.getMaxZ() - WORLD_BORDER_MARGIN;
+        
+        float newX = x;
+        float newZ = z;
+        
+        // Push back from X borders
+        if (x < minX) {
+            newX = minX;
+        } else if (x > maxX) {
+            newX = maxX;
+        }
+        
+        // Push back from Z borders
+        if (z < minZ) {
+            newZ = minZ;
+        } else if (z > maxZ) {
+            newZ = maxZ;
+        }
+        
+        return new float[]{newX, newZ};
     }
 
     public float getHeightAt(float x, float z) {

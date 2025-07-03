@@ -19,14 +19,14 @@ public class Player extends GameObject {
     private boolean firstMouse = true;
     private float lastX = 400, lastY = 300;
     private float velocity = 0.0f;
-    private float gravity = -9.0f;
+    private float gravity = -25.0f; // Increased gravity for better feel
     private World world;  // Reference to the world
     private boolean isOnGround = false;
-    private float jumpForce = 8.0f;  // Increased for better Minecraft-like jump
+    private float jumpForce = 12.0f;  // Increased jump force for better feel
     private boolean debugMode = true;  // Add debug mode
     private boolean wasSpacePressed = false;  // Track space key state
-    private static final float GROUND_CHECK_DISTANCE = 0.05f;  // How far below to check for ground
-    private static final float MAX_VELOCITY = 20.0f;  // Reduced maximum velocity
+    private static final float GROUND_CHECK_DISTANCE = 0.1f;  // Increased for better ground detection
+    private static final float MAX_VELOCITY = 30.0f;  // Increased max velocity
     
     // Player bounding box for entity collision
     private BoundingBox boundingBox;
@@ -103,6 +103,11 @@ public class Player extends GameObject {
         if (Debug.showPlayerInfo()) {
             System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b NoClip: %b%n", 
                 x, y, z, velocity, isOnGround, noClipMode);
+            
+            // Show world border info
+            float[] bounds = world.getWorldBorderBounds();
+            System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
+                bounds[0], bounds[1], bounds[2], bounds[3]);
         }
     }
     
@@ -133,6 +138,9 @@ public class Player extends GameObject {
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE) && isOnGround && !wasSpacePressed) {
             velocity = jumpForce;
             isOnGround = false;
+            if (Debug.showPlayerInfo()) {
+                System.out.println("JUMP! Velocity set to: " + jumpForce);
+            }
         }
         wasSpacePressed = KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE);
         
@@ -176,10 +184,15 @@ public class Player extends GameObject {
         x += finalMoveX;
         z += finalMoveZ;
         
-        // Update camera position to follow player
+        // Apply world border constraints
         if (!noClipMode) {
-            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+            float[] borderPos = world.applyWorldBorderForce(x, z);
+            x = borderPos[0];
+            z = borderPos[1];
         }
+        
+        // Note: Camera position will be updated in updateHeightmapCollision
+        // to ensure it's at the correct height after physics calculations
     }
     
     /**
@@ -194,24 +207,29 @@ public class Player extends GameObject {
             System.out.printf("Player Y: %.2f, Ground Y: %.2f, Velocity: %.2f%n", y, groundHeight, velocity);
         }
         
-        // Check if player is on ground
-        isOnGround = Math.abs(y - groundHeight) <= GROUND_CHECK_DISTANCE;
+        // Apply gravity first
+        velocity += gravity * deltaTime;
+        velocity = Math.max(velocity, -MAX_VELOCITY); // Limit fall speed
         
-        // Apply gravity if not on ground
-        if (!isOnGround) {
-            velocity += gravity * deltaTime;
-            velocity = Math.max(velocity, -MAX_VELOCITY); // Limit fall speed
-        } else {
-            // Snap to ground and reset velocity
+        // Apply velocity to get new position
+        float newY = y + velocity * deltaTime;
+        
+        // Check if player would hit the ground
+        if (newY <= groundHeight) {
+            // Player hit the ground
             y = groundHeight;
             velocity = 0;
+            isOnGround = true;
+        } else {
+            // Player is in the air
+            y = newY;
+            isOnGround = false;
         }
         
-        // Apply velocity
-        y += velocity * deltaTime;
-        
         // Update camera position to follow player
-        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+        if (!noClipMode) {
+            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+        }
     }
 
     @Override
