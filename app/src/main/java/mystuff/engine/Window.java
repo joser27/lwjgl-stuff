@@ -1,9 +1,18 @@
 package mystuff.engine;
 
+import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
+
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class Window {
     private long windowHandle;
@@ -85,6 +94,119 @@ public class Window {
         // Clear color and depth buffer
         GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         GL11.glClearDepth(1.0);
+    }
+
+    /**
+     * Sets the window icon from an image file
+     * @param iconPath Path to the icon image file (PNG/JPG/BMP/TGA supported)
+     */
+    public void setIcon(String iconPath) {
+        if (windowHandle == 0) {
+            System.err.println("Cannot set icon: Window not initialized");
+            return;
+        }
+
+        // Check if icon file exists
+        if (!Files.exists(Paths.get(iconPath))) {
+            System.err.println("Icon file does not exist: " + iconPath);
+            return;
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer width = stack.mallocInt(1);
+            IntBuffer height = stack.mallocInt(1);
+            IntBuffer channels = stack.mallocInt(1);
+
+            // Load the icon image
+            STBImage.stbi_set_flip_vertically_on_load(false);
+            ByteBuffer iconData = STBImage.stbi_load(iconPath, width, height, channels, 4);
+            
+            if (iconData == null) {
+                System.err.println("Failed to load icon: " + STBImage.stbi_failure_reason());
+                return;
+            }
+
+            try {
+                // Create GLFWImage buffer for the icon
+                GLFWImage.Buffer iconBuffer = GLFWImage.malloc(1);
+                GLFWImage icon = iconBuffer.get(0);
+                
+                // Set icon properties
+                icon.set(width.get(0), height.get(0), iconData);
+                
+                // Set the window icon
+                GLFW.glfwSetWindowIcon(windowHandle, iconBuffer);
+                
+                System.out.println("Successfully set window icon: " + iconPath);
+                
+                // Clean up the buffer
+                iconBuffer.free();
+                
+            } finally {
+                // Free the image memory
+                STBImage.stbi_image_free(iconData);
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error setting window icon: " + iconPath);
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Sets multiple window icons for different sizes (recommended for best results)
+     * @param iconPaths Array of icon paths, typically in different sizes (16x16, 32x32, 48x48, etc.)
+     */
+    public void setIcons(String[] iconPaths) {
+        if (windowHandle == 0) {
+            System.err.println("Cannot set icons: Window not initialized");
+            return;
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            GLFWImage.Buffer iconBuffer = GLFWImage.malloc(iconPaths.length);
+            
+            int validIcons = 0;
+            for (int i = 0; i < iconPaths.length; i++) {
+                String iconPath = iconPaths[i];
+                
+                if (!Files.exists(Paths.get(iconPath))) {
+                    System.err.println("Icon file does not exist: " + iconPath);
+                    continue;
+                }
+
+                IntBuffer width = stack.mallocInt(1);
+                IntBuffer height = stack.mallocInt(1);
+                IntBuffer channels = stack.mallocInt(1);
+
+                STBImage.stbi_set_flip_vertically_on_load(false);
+                ByteBuffer iconData = STBImage.stbi_load(iconPath, width, height, channels, 4);
+                
+                if (iconData == null) {
+                    System.err.println("Failed to load icon: " + iconPath + " - " + STBImage.stbi_failure_reason());
+                    continue;
+                }
+
+                GLFWImage icon = iconBuffer.get(validIcons);
+                icon.set(width.get(0), height.get(0), iconData);
+                validIcons++;
+                
+                System.out.println("Loaded icon: " + iconPath + " (" + width.get(0) + "x" + height.get(0) + ")");
+            }
+            
+            if (validIcons > 0) {
+                // Resize buffer to only include valid icons
+                iconBuffer.limit(validIcons);
+                GLFW.glfwSetWindowIcon(windowHandle, iconBuffer);
+                System.out.println("Successfully set " + validIcons + " window icons");
+            }
+            
+            iconBuffer.free();
+            
+        } catch (Exception e) {
+            System.err.println("Error setting window icons");
+            e.printStackTrace();
+        }
     }
 
     public void update() {

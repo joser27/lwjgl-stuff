@@ -107,6 +107,12 @@ public class GameEngine implements Runnable {
         window.init();
         window.setParentEngine(this); // Set parent engine reference
         
+        try {
+            window.setIcon("resources/icons/emoticon-32.png");
+        } catch (Exception e) {
+            System.out.println("No custom icon found, using default window icon");
+        }
+        
         // Ensure the window's context is current on this thread
         GLFW.glfwMakeContextCurrent(window.getWindowHandle());
         
