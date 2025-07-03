@@ -88,6 +88,16 @@ public class World {
     }
 
     private void generateWorld() {
+        setBlock(55, 12, 32, BlockType.STONE);
+        trees.add(new Tree(55, 12, 32));
+        trees.add(new Tree(70, 12, 32));
+        trees.add(new Tree(85, 12, 32));
+        trees.add(new Tree(100, 12, 32));
+        trees.add(new Tree(115, 12, 32));
+        trees.add(new Tree(130, 12, 32));
+        trees.add(new Tree(145, 12, 32));
+        trees.add(new Tree(160, 12, 32));
+        trees.add(new Tree(175, 12, 32));
         int groundHeight = 10; // Height of the flat world
         
         // Generate a flat world of dirt blocks
@@ -323,9 +333,7 @@ public class World {
         chunks.clear();
 
         // Cleanup trees
-        for (Tree tree : trees) {
-            tree.cleanup();
-        }
+        Tree.cleanupSharedResources();
         trees.clear();
 
         // Cleanup block textures
