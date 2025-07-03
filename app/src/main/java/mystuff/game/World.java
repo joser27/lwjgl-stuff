@@ -111,6 +111,16 @@ public class World {
         addTreeToChunk(110, 9, 50, TreeType.OAK);
         addTreeToChunk(125, 9, 50, TreeType.BROADLEAF);
         
+        // Add pine trees in a forest area
+        addTreeToChunk(40, 9, 70, TreeType.PINE);
+        addTreeToChunk(55, 9, 70, TreeType.PINE);
+        addTreeToChunk(70, 9, 70, TreeType.PINE);
+        addTreeToChunk(85, 9, 70, TreeType.PINE);
+        addTreeToChunk(100, 9, 70, TreeType.PINE);
+        addTreeToChunk(115, 9, 70, TreeType.PINE);
+        addTreeToChunk(130, 9, 70, TreeType.PINE);
+        addTreeToChunk(145, 9, 70, TreeType.PINE);
+        
         int groundHeight = 10; // Height of the flat world
         
         // Generate a flat world of dirt blocks
@@ -164,6 +174,9 @@ public class World {
                 break;
             case BROADLEAF:
                 tree = new BroadleafTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
+                break;
+            case PINE:
+                tree = new PineTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
                 break;
             default:
                 tree = new OakTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
@@ -435,6 +448,7 @@ public class World {
         Tree.cleanupSharedResources();
         OakTree.cleanupOakResources();
         BroadleafTree.cleanupBroadleafResources();
+        PineTree.cleanupPineResources();
         for (List<Tree> treesInChunk : chunkTrees.values()) {
             treesInChunk.clear();
         }
