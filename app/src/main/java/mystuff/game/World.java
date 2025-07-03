@@ -19,7 +19,7 @@ public class World {
     private static final int WORLD_DEPTH = 1000;    // Depth of the world in blocks
     
     private Map<ChunkKey, Chunk> chunks;
-    private List<Tree> trees;
+    private Map<ChunkKey, List<Tree>> chunkTrees; // Trees organized by chunk
     private Camera camera;
     private Player player;
     private static final int RENDER_DISTANCE = 4;
@@ -43,7 +43,7 @@ public class World {
             }
         };
         this.chunks = new HashMap<>();
-        this.trees = new ArrayList<>();
+        this.chunkTrees = new HashMap<>();
         generateWorld();
     }
 
@@ -89,15 +89,28 @@ public class World {
 
     private void generateWorld() {
         setBlock(55, 12, 32, BlockType.STONE);
-        trees.add(new Tree(55, 12, 32));
-        trees.add(new Tree(70, 12, 32));
-        trees.add(new Tree(85, 12, 32));
-        trees.add(new Tree(100, 12, 32));
-        trees.add(new Tree(115, 12, 32));
-        trees.add(new Tree(130, 12, 32));
-        trees.add(new Tree(145, 12, 32));
-        trees.add(new Tree(160, 12, 32));
-        trees.add(new Tree(175, 12, 32));
+        
+        // Add oak trees with chunk-based management
+        addTreeToChunk(55, 9, 32, TreeType.OAK);
+        addTreeToChunk(70, 9, 32, TreeType.OAK);
+        addTreeToChunk(85, 9, 32, TreeType.OAK);
+        addTreeToChunk(100, 9, 32, TreeType.OAK);
+        addTreeToChunk(115, 9, 32, TreeType.OAK);
+        
+        // Add broadleaf trees
+        addTreeToChunk(130, 9, 32, TreeType.BROADLEAF);
+        addTreeToChunk(145, 9, 32, TreeType.BROADLEAF);
+        addTreeToChunk(160, 9, 32, TreeType.BROADLEAF);
+        addTreeToChunk(175, 9, 32, TreeType.BROADLEAF);
+        
+        // Add more trees in different areas
+        addTreeToChunk(50, 9, 50, TreeType.OAK);
+        addTreeToChunk(65, 9, 50, TreeType.BROADLEAF);
+        addTreeToChunk(80, 9, 50, TreeType.OAK);
+        addTreeToChunk(95, 9, 50, TreeType.BROADLEAF);
+        addTreeToChunk(110, 9, 50, TreeType.OAK);
+        addTreeToChunk(125, 9, 50, TreeType.BROADLEAF);
+        
         int groundHeight = 10; // Height of the flat world
         
         // Generate a flat world of dirt blocks
@@ -118,10 +131,76 @@ public class World {
         }
     }
 
+    /**
+     * Adds a tree to the appropriate chunk based on its world coordinates
+     */
+    private void addTreeToChunk(int worldX, int worldY, int worldZ) {
+        addTreeToChunk(worldX, worldY, worldZ, TreeType.OAK);
+    }
+    
+    /**
+     * Adds a tree to the appropriate chunk based on its world coordinates and type
+     */
+    private void addTreeToChunk(int worldX, int worldY, int worldZ, TreeType treeType) {
+        // Convert world coordinates to chunk coordinates
+        int chunkX = Chunk.worldToChunkCoord(worldX * BLOCK_SIZE);
+        int chunkY = Chunk.worldToChunkCoord(worldY * BLOCK_SIZE);
+        int chunkZ = Chunk.worldToChunkCoord(worldZ * BLOCK_SIZE);
+        
+        ChunkKey key = new ChunkKey(chunkX, chunkY, chunkZ);
+        
+        // Get or create the tree list for this chunk
+        List<Tree> treesInChunk = chunkTrees.get(key);
+        if (treesInChunk == null) {
+            treesInChunk = new ArrayList<>();
+            chunkTrees.put(key, treesInChunk);
+        }
+        
+        // Create the appropriate tree type
+        Tree tree;
+        switch (treeType) {
+            case OAK:
+                tree = new OakTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
+                break;
+            case BROADLEAF:
+                tree = new BroadleafTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
+                break;
+            default:
+                tree = new OakTree(worldX * BLOCK_SIZE, worldY * BLOCK_SIZE, worldZ * BLOCK_SIZE);
+                break;
+        }
+        
+        // Add the tree to this chunk
+        treesInChunk.add(tree);
+    }
+
     public void update(Window window, float deltaTime) {
-        // Update trees if needed
-        for (Tree tree : trees) {
-            tree.update(window, deltaTime);
+        // Update trees in visible chunks only
+        float cullingX = (player != null) ? player.getX() : camera.getX();
+        float cullingY = (player != null) ? player.getY() : camera.getY();
+        float cullingZ = (player != null) ? player.getZ() : camera.getZ();
+        
+        for (Map.Entry<ChunkKey, List<Tree>> entry : chunkTrees.entrySet()) {
+            ChunkKey key = entry.getKey();
+            List<Tree> treesInChunk = entry.getValue();
+            
+            // Calculate distance to chunk center
+            float chunkX = key.x * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float chunkY = key.y * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float chunkZ = key.z * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            
+            float dx = chunkX - cullingX;
+            float dy = chunkY - cullingY;
+            float dz = chunkZ - cullingZ;
+            float distanceSquared = dx*dx + dy*dy + dz*dz;
+            float updateDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2);
+            
+            // Only update trees in nearby chunks
+            if (distanceSquared <= updateDistanceSquared) {
+                for (Tree tree : treesInChunk) {
+                    tree.update(window, deltaTime);
+                }
+            }
         }
     }
 
@@ -213,14 +292,34 @@ public class World {
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         
-        for (Tree tree : trees) {
-            float treeX = tree.getX();
-            float treeY = tree.getY();
-            float treeZ = tree.getZ();
+        // Render trees organized by chunks
+        for (Map.Entry<ChunkKey, List<Tree>> entry : chunkTrees.entrySet()) {
+            ChunkKey key = entry.getKey();
+            List<Tree> treesInChunk = entry.getValue();
             
-            // Check if tree is in view frustum before rendering
-            if (camera.isBoxInView(treeX, treeY, treeZ, 1, 5, 1)) {
-                tree.render();
+            // Calculate distance to chunk center
+            float chunkX = key.x * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float chunkY = key.y * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            float chunkZ = key.z * Chunk.CHUNK_SIZE * BLOCK_SIZE;
+            
+            float dx = chunkX - cullingX;
+            float dy = chunkY - cullingY;
+            float dz = chunkZ - cullingZ;
+            float distanceSquared = dx*dx + dy*dy + dz*dz;
+            float treeRenderDistanceSquared = (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2) * (RENDER_DISTANCE * Chunk.CHUNK_SIZE * 2);
+            
+            // Only render trees in nearby chunks
+            if (distanceSquared <= treeRenderDistanceSquared) {
+                for (Tree tree : treesInChunk) {
+                    float treeX = tree.getX();
+                    float treeY = tree.getY();
+                    float treeZ = tree.getZ();
+                    
+                    // Check if tree is in view frustum before rendering
+                    if (camera.isBoxInView(treeX, treeY, treeZ, 1, 5, 1)) {
+                        tree.render();
+                    }
+                }
             }
         }
         
@@ -334,7 +433,12 @@ public class World {
 
         // Cleanup trees
         Tree.cleanupSharedResources();
-        trees.clear();
+        OakTree.cleanupOakResources();
+        BroadleafTree.cleanupBroadleafResources();
+        for (List<Tree> treesInChunk : chunkTrees.values()) {
+            treesInChunk.clear();
+        }
+        chunkTrees.clear();
 
         // Cleanup block textures
         Block.cleanupTextures();

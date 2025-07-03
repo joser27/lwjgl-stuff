@@ -13,7 +13,7 @@ import mystuff.utils.KeyboardManager;
 
 public class Player extends GameObject {
     private float speed = 5.0f;
-    private float sprintSpeed = 8.0f; // Speed when sprinting
+    private float sprintSpeed = 16.0f; // Speed when sprinting
     private boolean isSprinting = false;
     private float size = 10.0f;
     private Camera camera;  // Reference to the camera

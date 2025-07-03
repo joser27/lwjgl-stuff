@@ -90,8 +90,8 @@ public class TextureLoader {
                 // Set low quality parameters
                 setLowQualityParameters();
 
-                // Upload the texture data with no mipmaps
-                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB, width.get(), height.get(), 0,
+                // Upload the texture data with alpha channel preserved
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width.get(), height.get(), 0,
                         GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, imageData);
 
                 // Cache and return the texture ID
