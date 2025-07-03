@@ -12,9 +12,9 @@ public class World {
     private Player player;
     private WorldBorder worldBorder; // Visual world border
     private static final int RENDER_DISTANCE = 4; // Increased render distance
-    private static final float TERRAIN_SIZE = 512.0f; // Match splatmap size (512x512 pixels)
-    private static final float WORLD_BORDER_MARGIN = 50.0f; // Increased margin for larger terrain
-    private static final float WORLD_BORDER_FORCE = 20.0f; // Force to push player back
+    private static final float TERRAIN_SIZE = 1024.0f; 
+    private static final float WORLD_BORDER_MARGIN = 10.0f; // Increased margin for larger terrain
+    private static final float WORLD_BORDER_FORCE = 10.0f; // Force to push player back
 
     public World(Camera camera) {
         this.camera = camera;

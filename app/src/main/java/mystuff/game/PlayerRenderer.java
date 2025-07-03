@@ -8,6 +8,7 @@ import mystuff.utils.Debug;
 
 public class PlayerRenderer {
     private static int playerTexture = -1;
+    private static int headTexture = -1; // Separate texture for the head
     
     // Model dimensions
     private static final float HEAD_SIZE = 0.5f;
@@ -37,6 +38,20 @@ public class PlayerRenderer {
                 System.err.println("Failed to load player texture!");
             }
         }
+        
+        if (headTexture == -1) {
+            headTexture = TextureLoader.loadTexture("resources/textures/lesterface.png");
+            if (headTexture != -1) {
+                glBindTexture(GL_TEXTURE_2D, headTexture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+                System.out.println("Head texture (lesterface.png) loaded successfully!");
+            } else {
+                System.err.println("Failed to load head texture (lesterface.png)!");
+            }
+        }
     }
 
     public void render(Player player, float yaw, float pitch) {
@@ -51,10 +66,6 @@ public class PlayerRenderer {
         
         // Enable texturing
         glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, playerTexture);
-        
-        // Set color to white to render texture properly
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
         // Draw head with rotation
         glPushMatrix();
@@ -62,45 +73,147 @@ public class PlayerRenderer {
         glRotatef(-yaw, 0, 1, 0);  // Rotate around Y axis (left/right)
         glRotatef(-pitch, 1, 0, 0);  // Invert pitch rotation for natural up/down movement
         
-        // Set up texture coordinates for the head
-        float startU = 160.0f/1280.0f;
-        float startV = 160.0f/640.0f;
-        float uvWidth = 160.0f/1280.0f;
-        float uvHeight = 160.0f/640.0f;
+        // Use head texture for the head
+        if (headTexture != -1) {
+            glBindTexture(GL_TEXTURE_2D, headTexture);
+        } else {
+            glBindTexture(GL_TEXTURE_2D, playerTexture);
+        }
+        
+        // Set color to white to render texture properly
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-        // Draw the head using improved spherical UV mapping
-        for (int i = 0; i < SPHERE_STACKS; i++) {
-            float phi1 = (float) Math.PI * i / SPHERE_STACKS;
-            float phi2 = (float) Math.PI * (i + 1) / SPHERE_STACKS;
+        // Draw the head as a 10-sided polygon with two front faces for the face texture
+        if (headTexture != -1) {
+            // Use face texture
+            glBindTexture(GL_TEXTURE_2D, headTexture);
             
-            glBegin(GL_QUAD_STRIP);
-            for (int j = 0; j <= SPHERE_SLICES; j++) {
-                float theta = 2.0f * (float) Math.PI * j / SPHERE_SLICES;
+            // Head dimensions
+            float headRadius = HEAD_SIZE * 0.5f;
+            float headHeight = HEAD_SIZE * 1.0f;
+            float headDepth = HEAD_SIZE * 0.6f;
+            
+            // 10-sided polygon (decagon)
+            int sides = 10;
+            float angleStep = 2.0f * (float) Math.PI / sides;
+            
+            // Draw the head as a 10-sided prism
+            for (int i = 0; i < sides; i++) {
+                float angle1 = i * angleStep;
+                float angle2 = (i + 1) * angleStep;
                 
-                // Calculate UV coordinates based on spherical position
-                float u = startU + uvWidth * (j / (float) SPHERE_SLICES);
-                float v1 = startV + uvHeight * (i / (float) SPHERE_STACKS);
-                float v2 = startV + uvHeight * ((i + 1) / (float) SPHERE_STACKS);
+                // Calculate vertex positions for this face
+                float x1 = (float) Math.cos(angle1) * headRadius;
+                float z1 = (float) Math.sin(angle1) * headRadius;
+                float x2 = (float) Math.cos(angle2) * headRadius;
+                float z2 = (float) Math.sin(angle2) * headRadius;
                 
-                // First vertex
-                float x1 = (float) (Math.sin(phi1) * Math.cos(theta));
-                float y1 = (float) Math.cos(phi1);
-                float z1 = (float) (Math.sin(phi1) * Math.sin(theta));
-                glTexCoord2f(u, v1);
-                glNormal3f(x1, y1, z1);
-                glVertex3f(HEAD_SIZE * x1, HEAD_SIZE * y1, HEAD_SIZE * z1);
+                // Determine if this is a front face (facing forward)
+                boolean isFrontFace = (angle1 >= -angleStep/2 && angle1 <= angleStep/2) || 
+                                     (angle2 >= -angleStep/2 && angle2 <= angleStep/2) ||
+                                     (angle1 <= -Math.PI + angleStep/2 && angle2 >= Math.PI - angleStep/2);
                 
-                // Second vertex
-                float x2 = (float) (Math.sin(phi2) * Math.cos(theta));
-                float y2 = (float) Math.cos(phi2);
-                float z2 = (float) (Math.sin(phi2) * Math.sin(theta));
-                glTexCoord2f(u, v2);
-                glNormal3f(x2, y2, z2);
-                glVertex3f(HEAD_SIZE * x2, HEAD_SIZE * y2, HEAD_SIZE * z2);
+                if (isFrontFace) {
+                    // Use face texture for front faces
+                    glBindTexture(GL_TEXTURE_2D, headTexture);
+                    
+                    // Draw the front face with face texture
+                    glBegin(GL_QUADS);
+                    
+                    // Map half the face texture to each front face
+                    float u1 = (i == 0) ? 0.0f : 0.5f;  // Left half or right half
+                    float u2 = (i == 0) ? 0.5f : 1.0f;
+                    
+                    glTexCoord2f(u1, 1.0f); glVertex3f(x1, -headHeight/2, headDepth/2);
+                    glTexCoord2f(u2, 1.0f); glVertex3f(x2, -headHeight/2, headDepth/2);
+                    glTexCoord2f(u2, 0.0f); glVertex3f(x2,  headHeight/2, headDepth/2);
+                    glTexCoord2f(u1, 0.0f); glVertex3f(x1,  headHeight/2, headDepth/2);
+                    
+                    glEnd();
+                } else {
+                    // Use solid color for side faces
+                    glDisable(GL_TEXTURE_2D);
+                    glColor3f(0.75f, 0.55f, 0.35f); // Skin tone color
+                    
+                    glBegin(GL_QUADS);
+                    glVertex3f(x1, -headHeight/2, headDepth/2);
+                    glVertex3f(x2, -headHeight/2, headDepth/2);
+                    glVertex3f(x2,  headHeight/2, headDepth/2);
+                    glVertex3f(x1,  headHeight/2, headDepth/2);
+                    glEnd();
+                    
+                    // Re-enable texturing
+                    glEnable(GL_TEXTURE_2D);
+                    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+                }
+            }
+            
+            // Draw top and bottom faces
+            glDisable(GL_TEXTURE_2D);
+            glColor3f(0.75f, 0.55f, 0.35f); // Skin tone color
+            
+            // Top face
+            glBegin(GL_POLYGON);
+            for (int i = 0; i < sides; i++) {
+                float angle = i * angleStep;
+                float x = (float) Math.cos(angle) * headRadius;
+                float z = (float) Math.sin(angle) * headRadius;
+                glVertex3f(x, headHeight/2, z);
             }
             glEnd();
+            
+            // Bottom face
+            glBegin(GL_POLYGON);
+            for (int i = 0; i < sides; i++) {
+                float angle = i * angleStep;
+                float x = (float) Math.cos(angle) * headRadius;
+                float z = (float) Math.sin(angle) * headRadius;
+                glVertex3f(x, -headHeight/2, z);
+            }
+            glEnd();
+            
+            // Re-enable texturing and reset color
+            glEnable(GL_TEXTURE_2D);
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            
+        } else {
+            // Fallback: draw a simple colored sphere
+            glDisable(GL_TEXTURE_2D);
+            glColor3f(0.8f, 0.6f, 0.4f); // Skin tone color
+            
+            // Simple sphere using quad strips
+            for (int i = 0; i < SPHERE_STACKS; i++) {
+                float phi1 = (float) Math.PI * i / SPHERE_STACKS;
+                float phi2 = (float) Math.PI * (i + 1) / SPHERE_STACKS;
+                
+                glBegin(GL_QUAD_STRIP);
+                for (int j = 0; j <= SPHERE_SLICES; j++) {
+                    float theta = 2.0f * (float) Math.PI * j / SPHERE_SLICES;
+                    
+                    float x1 = (float) (Math.sin(phi1) * Math.cos(theta));
+                    float y1 = (float) Math.cos(phi1);
+                    float z1 = (float) (Math.sin(phi1) * Math.sin(theta));
+                    
+                    float x2 = (float) (Math.sin(phi2) * Math.cos(theta));
+                    float y2 = (float) Math.cos(phi2);
+                    float z2 = (float) (Math.sin(phi2) * Math.sin(theta));
+                    
+                    glNormal3f(x1, y1, z1);
+                    glVertex3f(HEAD_SIZE * x1, HEAD_SIZE * y1, HEAD_SIZE * z1);
+                    
+                    glNormal3f(x2, y2, z2);
+                    glVertex3f(HEAD_SIZE * x2, HEAD_SIZE * y2, HEAD_SIZE * z2);
+                }
+                glEnd();
+            }
+            
+            glEnable(GL_TEXTURE_2D);
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         }
         glPopMatrix();
+
+        // Switch back to player texture for body parts
+        glBindTexture(GL_TEXTURE_2D, playerTexture);
 
         // Draw body (cuboid) without rotation
         glPushMatrix();

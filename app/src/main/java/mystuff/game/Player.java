@@ -12,6 +12,8 @@ import mystuff.utils.KeyboardManager;
 public class Player extends GameObject {
     private float speed = 5.0f;
     private float sprintSpeed = 16.0f; // Speed when sprinting
+    private float noClipSpeed = 50.0f; // Much faster speed for no-clip mode
+    private float noClipSprintSpeed = 150.0f; // Very fast sprint speed for no-clip mode
     private boolean isSprinting = false;
     private float size = 10.0f;
     private Camera camera;  // Reference to the camera
@@ -49,13 +51,16 @@ public class Player extends GameObject {
     public static final float PLAYER_WIDTH = 1.0f;  // Slightly narrower than rendered size
     public static final float PLAYER_HEIGHT = 2.0f; // Player is taller than wide (2x)
     public static final float PLAYER_DEPTH = 1.0f;  // Same as width
+    
+    // Camera height offset - tweak this to adjust how high the camera appears above the player
+    private static final float CAMERA_HEIGHT_OFFSET = 0.95f; // 0.85f was too low, try 0.95f
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
         this.world = world;
         // Set initial camera position to player position at eye level (slightly lower than before)
-        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z); // Eye level at approximately head height
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z); // Eye level at approximately head height
         
         // Create player's bounding box for entity collision
         updateBoundingBox();
@@ -247,10 +252,11 @@ public class Player extends GameObject {
         // Apply velocity to get new position
         float newY = y + velocity * deltaTime;
         
-        // Check if player would hit the ground
-        if (newY <= groundHeight) {
-            // Player hit the ground
-            y = groundHeight;
+        // Check if player would hit the ground (compare feet position to ground)
+        float feetY = newY - (PLAYER_HEIGHT * 0.5f);
+        if (feetY <= groundHeight) {
+            // Player hit the ground - position so feet touch ground
+            y = groundHeight + (PLAYER_HEIGHT * 0.5f);
             velocity = 0;
             isOnGround = true;
         } else {
@@ -260,7 +266,7 @@ public class Player extends GameObject {
         }
         
         // Update camera position to follow player (only in normal mode)
-        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
     @Override
@@ -320,14 +326,14 @@ public class Player extends GameObject {
             
             // Start camera at player's eye level
             noClipCameraX = x;
-            noClipCameraY = y + (PLAYER_HEIGHT * 0.75f);
+            noClipCameraY = y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET);
             noClipCameraZ = z;
             camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
             
             System.out.println("Entering SPIRIT MODE - Player body stays in place, camera can fly freely");
         } else if (wasNoClipMode && !noClipMode) {
             // Exiting no-clip mode: return camera to player position
-            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+            camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
             System.out.println("Exiting SPIRIT MODE - Returning to normal gameplay");
         }
         
@@ -379,7 +385,11 @@ public class Player extends GameObject {
     }
     
     public float getCurrentSpeed() {
-        return isSprinting ? sprintSpeed : speed;
+        if (noClipMode) {
+            return isSprinting ? noClipSprintSpeed : noClipSpeed;
+        } else {
+            return isSprinting ? sprintSpeed : speed;
+        }
     }
     
     public int getCollisionCheckRadius() {
