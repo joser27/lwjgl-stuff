@@ -19,7 +19,6 @@ public class Game implements IGameLogic {
     private Player player;
     private World world;
     private PlayerRenderer playerRenderer;
-    private Skybox skybox;
     private Timer timer;
     
     // Game state
@@ -43,7 +42,7 @@ public class Game implements IGameLogic {
             GL11.glEnable(GL11.GL_DEPTH_TEST);
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-            GL11.glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Dark background color
+            GL11.glClearColor(0.5f, 0.8f, 1.0f, 1.0f); // Sky blue background
             
             // Print more detailed OpenGL information
             System.out.println("Using OpenGL version: " + GL11.glGetString(GL11.GL_VERSION));
@@ -58,9 +57,6 @@ public class Game implements IGameLogic {
             
             playerRenderer = new PlayerRenderer();
             playerRenderer.init();
-            
-            skybox = new Skybox();
-            skybox.init();
             
             // Initialize font
             mystuff.utils.FontLoader.init("resources/fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
@@ -202,7 +198,6 @@ public class Game implements IGameLogic {
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
             // Render game objects
-            skybox.render();
             world.render(camera);
             
             // When in no-clip mode, the player body should remain stationary
@@ -387,7 +382,6 @@ public class Game implements IGameLogic {
     public void cleanup() {
         if (player != null) player.cleanup();
         if (world != null) world.cleanup();
-        if (skybox != null) skybox.cleanup();
         if (playerRenderer != null) playerRenderer.cleanup();
         mystuff.utils.TextureLoader.cleanup();
         mystuff.utils.FontLoader.cleanup();
