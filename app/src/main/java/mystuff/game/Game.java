@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
+import mystuff.utils.FogRenderer;
 
 /**
  * Main game class that implements the game logic interface
@@ -20,6 +21,7 @@ public class Game implements IGameLogic {
     private World world;
     private PlayerRenderer playerRenderer;
     private Timer timer;
+    private FogRenderer fogRenderer;
     
     // Game state
     private boolean wireframeMode = false;
@@ -61,6 +63,10 @@ public class Game implements IGameLogic {
             // Initialize font
             mystuff.utils.FontLoader.init("resources/fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
             
+            // Initialize fog system for horror atmosphere
+            fogRenderer = new FogRenderer();
+            fogRenderer.setFogType(FogRenderer.FogType.DENSE_FOG);
+            
             // Set up mouse cursor
             GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
             
@@ -90,6 +96,20 @@ public class Game implements IGameLogic {
         // Toggle wireframe mode
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F)) {
             wireframeMode = !wireframeMode;
+        }
+        
+        // Fog type cycling for testing
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_T)) {
+            cycleFogType();
+        }
+        
+        // Horror intensity control
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_UP)) {
+            float currentIntensity = fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f;
+            fogRenderer.setHorrorIntensity(Math.min(1.0f, currentIntensity + 0.1f));
+        }
+        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_DOWN)) {
+            fogRenderer.setHorrorIntensity(Math.max(0.0f, fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f - 0.1f));
         }
         
         // Toggle pause with P key
@@ -128,6 +148,9 @@ public class Game implements IGameLogic {
         // This allows the world to prioritize loading chunks near the player
         world.update(null, interval);
         
+        // Update fog system
+        fogRenderer.update(interval);
+        
         // Store performance metrics if timer available
         if (timer != null) {
             cpuUtilizationHistory[utilizationIndex] = timer.getFrameUtilization();
@@ -144,7 +167,15 @@ public class Game implements IGameLogic {
                 return;
             }
             
-            // Clear buffers
+            // Clear buffers with fog-appropriate background color
+            if (fogRenderer != null && fogRenderer.isFogEnabled()) {
+                // Use fog color as background for seamless fog effect
+                float[] fogColor = fogRenderer.getFogColor();
+                GL11.glClearColor(fogColor[0], fogColor[1], fogColor[2], fogColor[3]);
+            } else {
+                // Use sky blue when no fog
+                GL11.glClearColor(0.5f, 0.8f, 1.0f, 1.0f);
+            }
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             
             // Set wireframe mode if enabled
@@ -172,6 +203,11 @@ public class Game implements IGameLogic {
             matrix[14] = -((2 * zNear * zFar) / frustumLength);
             matrix[15] = 0;
             GL11.glLoadMatrixf(matrix);
+            
+            // Apply fog after projection matrix is set
+            if (fogRenderer != null) {
+                fogRenderer.applyFog();
+            }
             
             // Set up modelview matrix
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
@@ -325,6 +361,13 @@ public class Game implements IGameLogic {
             
             // Game time
             renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
+            
+            // Fog information
+            if (fogRenderer != null) {
+                renderText(String.format("Fog: %s", fogRenderer.getCurrentFogType()), 10, 150);
+                renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 170);
+                renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 190);
+            }
         }
         
         GL11.glPopMatrix();
@@ -383,6 +426,7 @@ public class Game implements IGameLogic {
         if (player != null) player.cleanup();
         if (world != null) world.cleanup();
         if (playerRenderer != null) playerRenderer.cleanup();
+        if (fogRenderer != null) fogRenderer.cleanup();
         mystuff.utils.TextureLoader.cleanup();
         mystuff.utils.FontLoader.cleanup();
     }
@@ -401,5 +445,26 @@ public class Game implements IGameLogic {
 
     public void setTimer(Timer timer) {
         this.timer = timer;
+    }
+    
+    /**
+     * Cycle through different fog types for testing
+     */
+    private void cycleFogType() {
+        FogRenderer.FogType currentType = fogRenderer.getCurrentFogType();
+        FogRenderer.FogType[] types = FogRenderer.FogType.values();
+        
+        int currentIndex = 0;
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == currentType) {
+                currentIndex = i;
+                break;
+            }
+        }
+        
+        int nextIndex = (currentIndex + 1) % types.length;
+        fogRenderer.setFogType(types[nextIndex]);
+        
+        System.out.println("Fog type changed to: " + types[nextIndex]);
     }
 } 
