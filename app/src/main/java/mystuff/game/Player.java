@@ -38,6 +38,8 @@ public class Player extends GameObject {
     
     // Store last position before entering no-clip mode
     private float lastNormalX, lastNormalY, lastNormalZ;
+    // Separate camera position for no-clip mode (spirit/ghost view)
+    private float noClipCameraX, noClipCameraY, noClipCameraZ;
 
     private static int playerTexture = -1;
     private static final float TEXTURE_SCALE = 1280.0f;  // Your texture width
@@ -101,13 +103,18 @@ public class Player extends GameObject {
         }
 
         if (Debug.showPlayerInfo()) {
-            System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b NoClip: %b%n", 
-                x, y, z, velocity, isOnGround, noClipMode);
-            
-            // Show world border info
-            float[] bounds = world.getWorldBorderBounds();
-            System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
-                bounds[0], bounds[1], bounds[2], bounds[3]);
+            if (noClipMode) {
+                System.out.printf("SPIRIT MODE - Player: (%.2f, %.2f, %.2f) Camera: (%.2f, %.2f, %.2f)%n", 
+                    x, y, z, noClipCameraX, noClipCameraY, noClipCameraZ);
+                System.out.println("*** SPIRIT MODE ACTIVE - Press N to return to player ***");
+            } else {
+                System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b%n", 
+                    x, y, z, velocity, isOnGround);
+                // Show world border info only in normal mode
+                float[] bounds = world.getWorldBorderBounds();
+                System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
+                    bounds[0], bounds[1], bounds[2], bounds[3]);
+            }
         }
     }
     
@@ -160,7 +167,18 @@ public class Player extends GameObject {
             moveX += 1; // Right (positive X)
         }
         
-        // Normalize movement vector
+        // Handle vertical movement in no-clip mode
+        float moveY = 0;
+        if (noClipMode) {
+            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE)) {
+                moveY += 1; // Fly up
+            }
+            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT)) {
+                moveY -= 1; // Fly down
+            }
+        }
+        
+        // Normalize movement vector (only horizontal movement)
         if (moveX != 0 || moveZ != 0) {
             float length = (float) Math.sqrt(moveX * moveX + moveZ * moveZ);
             moveX /= length;
@@ -180,25 +198,40 @@ public class Player extends GameObject {
         float finalMoveX = (moveX * rightX + moveZ * forwardX) * currentSpeed * deltaTime;
         float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * currentSpeed * deltaTime;
         
-        // Apply movement
-        x += finalMoveX;
-        z += finalMoveZ;
-        
-        // Apply world border constraints
-        if (!noClipMode) {
+        // Apply movement based on mode
+        if (noClipMode) {
+            // In no-clip mode: move camera, not player
+            noClipCameraX += finalMoveX;
+            noClipCameraZ += finalMoveZ;
+            
+            // Apply vertical movement in no-clip mode
+            if (moveY != 0) {
+                noClipCameraY += moveY * currentSpeed * deltaTime;
+            }
+            
+            // Update camera position
+            camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
+        } else {
+            // In normal mode: move player
+            x += finalMoveX;
+            z += finalMoveZ;
+            
+            // Apply world border constraints
             float[] borderPos = world.applyWorldBorderForce(x, z);
             x = borderPos[0];
             z = borderPos[1];
         }
-        
-        // Note: Camera position will be updated in updateHeightmapCollision
-        // to ensure it's at the correct height after physics calculations
     }
     
     /**
      * Handle heightmap-based collision and movement
      */
     private void updateHeightmapCollision(float deltaTime) {
+        // Skip physics in no-clip mode
+        if (noClipMode) {
+            return;
+        }
+        
         // Get ground height at current position
         float groundHeight = world.getHeightAt(x, z);
         
@@ -226,10 +259,8 @@ public class Player extends GameObject {
             isOnGround = false;
         }
         
-        // Update camera position to follow player
-        if (!noClipMode) {
-            camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
-        }
+        // Update camera position to follow player (only in normal mode)
+        camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
     }
 
     @Override
@@ -281,9 +312,23 @@ public class Player extends GameObject {
         wasNoClipMode = noClipMode; // Store current state before changing
         noClipMode = !noClipMode;
         
-        // If we're entering no-clip mode, update camera position to player's eye level
         if (!wasNoClipMode && noClipMode) {
+            // Entering no-clip mode: store player position and set camera to spirit view
+            lastNormalX = x;
+            lastNormalY = y;
+            lastNormalZ = z;
+            
+            // Start camera at player's eye level
+            noClipCameraX = x;
+            noClipCameraY = y + (PLAYER_HEIGHT * 0.75f);
+            noClipCameraZ = z;
+            camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
+            
+            System.out.println("Entering SPIRIT MODE - Player body stays in place, camera can fly freely");
+        } else if (wasNoClipMode && !noClipMode) {
+            // Exiting no-clip mode: return camera to player position
             camera.setPosition(x, y + (PLAYER_HEIGHT * 0.75f), z);
+            System.out.println("Exiting SPIRIT MODE - Returning to normal gameplay");
         }
         
         System.out.println("N key pressed! No-clip mode: " + (noClipMode ? "ON" : "OFF"));
