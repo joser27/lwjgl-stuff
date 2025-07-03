@@ -22,7 +22,7 @@ public class World {
     private Map<ChunkKey, List<Tree>> chunkTrees; // Trees organized by chunk
     private Camera camera;
     private Player player;
-    private static final int RENDER_DISTANCE = 4;
+    private static final int RENDER_DISTANCE = 5;
     private static final float CLOSE_DISTANCE = 32.0f; // Distance threshold for color change
 
     // Add chunk cache
@@ -328,8 +328,20 @@ public class World {
                     float treeY = tree.getY();
                     float treeZ = tree.getZ();
                     
-                    // Check if tree is in view frustum before rendering
-                    if (camera.isBoxInView(treeX, treeY, treeZ, 1, 5, 1)) {
+                    // Use the same frustum culling method as terrain blocks
+                    // Calculate tree bounding box (approximate size for pine trees)
+                    float treeWidth = 24.0f;  // Maximum tree width
+                    float treeHeight = 70.0f; // Maximum tree height
+                    float treeDepth = 24.0f;  // Same as width for cross-pattern trees
+                    
+                    boolean treeInFrustum = isBoxInViewFromPosition(
+                        treeX - treeWidth/2, treeY, treeZ - treeDepth/2,
+                        treeWidth, treeHeight, treeDepth,
+                        cullingX, cullingY, cullingZ,
+                        camera.getPitch(), camera.getYaw()
+                    );
+                    
+                    if (treeInFrustum) {
                         tree.render();
                     }
                 }
