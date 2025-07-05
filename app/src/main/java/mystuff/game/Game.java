@@ -23,6 +23,7 @@ public class Game implements IGameLogic {
     private Timer timer;
     private FogRenderer fogRenderer;
     private Cat cat;
+    private Mage mage;
     
     // Game state
     private boolean wireframeMode = false;
@@ -58,6 +59,13 @@ public class Game implements IGameLogic {
             float catStartY = world.getHeightAt(10, 0) + 20.0f;
             cat = new Cat(50, catStartY, 50);
             
+            // Create mage for animation testing
+            float mageStartY = world.getHeightAt(50, 0) + 5.0f;
+            mage = new Mage(40, mageStartY+10, 40);
+            mage.setLooping(true); // Make the animation loop
+            mage.playAttackAnimation(); // Start the animation immediately
+            System.out.println("Mage created at position: (10, " + mageStartY + ", 10)");
+            
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;
@@ -73,7 +81,7 @@ public class Game implements IGameLogic {
             
             // Initialize fog system for horror atmosphere
             fogRenderer = new FogRenderer();
-            fogRenderer.setFogType(FogRenderer.FogType.DENSE_FOG);
+            fogRenderer.setFogType(FogRenderer.FogType.NONE);
             
             // Set up mouse cursor
             GLFW.glfwSetInputMode(window.getWindowHandle(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
@@ -142,6 +150,12 @@ public class Game implements IGameLogic {
             }
         }
         
+        // Start mage attack animation with M key
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_M) && mage != null) {
+            mage.playAttackAnimation();
+            System.out.println("Started mage attack animation!");
+        }
+        
         // Time scaling with [ and ] keys
         if (timer != null) {
             if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_BRACKET)) {
@@ -170,6 +184,11 @@ public class Game implements IGameLogic {
         
         // Update world
         world.update(interval);
+        
+        // Update mage animation
+        if (mage != null) {
+            mage.update(null, interval);
+        }
         
         // Update fog system
         fogRenderer.update(interval);
@@ -276,6 +295,22 @@ public class Game implements IGameLogic {
             
             // Render cat
             cat.render();
+            
+            // Restore OpenGL state
+            GL11.glPopMatrix();
+            GL11.glPopAttrib();
+            
+            // Render mage animation in separate OpenGL state
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            GL11.glPushMatrix();
+            
+            // Apply only camera translation for mage (no rotation)
+            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+            
+            // Render mage
+            if (mage != null) {
+                mage.render();
+            }
             
             // Restore OpenGL state
             GL11.glPopMatrix();
@@ -406,6 +441,13 @@ public class Game implements IGameLogic {
                 renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 170);
                 renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 190);
             }
+            
+            // Mage animation info
+            if (mage != null) {
+                renderText(String.format("Mage Animation: %s", mage.isPlaying() ? "Playing" : "Stopped"), 10, 210);
+                renderText(String.format("Frame: %d/%d", mage.getCurrentFrame() + 1, mage.getTotalFrames()), 10, 230);
+                renderText("Press M to start attack animation", 10, 250);
+            }
         }
         
         GL11.glPopMatrix();
@@ -465,6 +507,7 @@ public class Game implements IGameLogic {
         if (world != null) world.cleanup();
         if (playerRenderer != null) playerRenderer.cleanup();
         if (fogRenderer != null) fogRenderer.cleanup();
+        if (mage != null) mage.cleanup();
         mystuff.utils.TextureLoader.cleanup();
         mystuff.utils.FontLoader.cleanup();
     }

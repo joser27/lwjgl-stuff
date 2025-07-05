@@ -39,8 +39,8 @@ public class TextureLoader {
         // Bind the texture
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
         
-        // Set texture parameters for low quality
-        setLowQualityParameters();
+        // Set texture parameters for high quality
+        setTextureParameters();
         
         // Upload the texture data
         GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width, height, 0,
@@ -95,7 +95,7 @@ public class TextureLoader {
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 
                 // Set high quality parameters
-                setLowQualityParameters();
+                setTextureParameters();
 
                 // Upload the texture data with alpha channel preserved
                 GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width.get(), height.get(), 0,
@@ -122,7 +122,7 @@ public class TextureLoader {
     /**
      * Sets texture parameters for high quality rendering
      */
-    private static void setLowQualityParameters() {
+    private static void setTextureParameters() {
         // Use linear filtering for smooth, high-quality textures
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
