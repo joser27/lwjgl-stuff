@@ -29,7 +29,7 @@ public abstract class Tree extends GameObject {
      * Override this method to specify the texture path for each tree type
      */
     protected static String getTexturePath() {
-        return "resources/textures/oak_tree.png"; // Default to oak tree texture
+        return "textures/oak_tree.png"; // Default to oak tree texture
     }
 
     @Override

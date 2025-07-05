@@ -9,10 +9,9 @@ import org.lwjgl.stb.STBTruetype;
 import org.lwjgl.system.MemoryStack;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 public class FontLoader {
     private static final int BITMAP_WIDTH = 512;
@@ -29,8 +28,12 @@ public class FontLoader {
     
     public static void init(String fontPath) {
         try {
-            // Load font file
-            byte[] ttfBytes = Files.readAllBytes(Paths.get(fontPath));
+            // Load font file from classpath
+            InputStream inputStream = FontLoader.class.getClassLoader().getResourceAsStream(fontPath);
+            if (inputStream == null) {
+                throw new IOException("Font file not found: " + fontPath);
+            }
+            byte[] ttfBytes = inputStream.readAllBytes();
             ttfData = BufferUtils.createByteBuffer(ttfBytes.length);
             ttfData.put(ttfBytes);
             ttfData.flip();

@@ -16,7 +16,7 @@ public class OakTree extends Tree {
     
     private static void loadOakTexture() {
         if (oakTexture == -1) {
-            oakTexture = TextureLoader.loadTexture("resources/textures/oak_tree.png");
+            oakTexture = TextureLoader.loadTexture("textures/oak_tree.png");
             if (oakTexture != -1) {
                 System.out.println("Oak tree texture loaded: " + oakTexture);
             } else {

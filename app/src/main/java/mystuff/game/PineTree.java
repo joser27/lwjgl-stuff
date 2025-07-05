@@ -16,7 +16,7 @@ public class PineTree extends Tree {
     
     private static void loadPineTexture() {
         if (pineTexture == -1) {
-            pineTexture = TextureLoader.loadTexture("resources/textures/Pine_Tree.png");
+            pineTexture = TextureLoader.loadTexture("textures/Pine_Tree.png");
             if (pineTexture != -1) {
                 System.out.println("Pine tree texture loaded: " + pineTexture);
             } else {

@@ -16,7 +16,7 @@ public class BroadleafTree extends Tree {
     
     private static void loadBroadleafTexture() {
         if (broadleafTexture == -1) {
-            broadleafTexture = TextureLoader.loadTexture("resources/textures/broadleaf_tree.png");
+            broadleafTexture = TextureLoader.loadTexture("textures/broadleaf_tree.png");
             if (broadleafTexture != -1) {
                 System.out.println("Broadleaf tree texture loaded: " + broadleafTexture);
             } else {

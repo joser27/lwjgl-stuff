@@ -91,10 +91,10 @@ public class SplatmapTerrain {
         System.out.println("Loading terrain textures...");
         
         // Load individual textures
-        grassTexture = TextureLoader.loadTexture("resources/textures/grass.jpg");
-        dirtTexture = TextureLoader.loadTexture("resources/textures/dirt.jpg");
-        stoneTexture = TextureLoader.loadTexture("resources/textures/stone.jpg");
-        splatmapTexture = TextureLoader.loadTexture("resources/textures/splatmap.png");
+        grassTexture = TextureLoader.loadTexture("textures/grass.jpg");
+        dirtTexture = TextureLoader.loadTexture("textures/dirt.jpg");
+        stoneTexture = TextureLoader.loadTexture("textures/stone.jpg");
+        splatmapTexture = TextureLoader.loadTexture("textures/splatmap.png");
         
         System.out.println("Texture loading results:");
         System.out.println("  Grass texture ID: " + grassTexture);

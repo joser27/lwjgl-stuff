@@ -6,10 +6,9 @@ import org.lwjgl.opengl.GL14;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -60,8 +59,9 @@ public class TextureLoader {
             return textureCache.get(path);
         }
 
-        // First verify the file exists
-        if (!Files.exists(Paths.get(path))) {
+        // Load from classpath
+        InputStream inputStream = TextureLoader.class.getClassLoader().getResourceAsStream(path);
+        if (inputStream == null) {
             System.err.println("Texture file does not exist: " + path);
             return -1;
         }
@@ -71,9 +71,15 @@ public class TextureLoader {
             IntBuffer height = stack.mallocInt(1);
             IntBuffer channels = stack.mallocInt(1);
 
-            // Load the image with reduced quality
+            // Read all bytes from the input stream
+            byte[] imageBytes = inputStream.readAllBytes();
+            ByteBuffer imageBuffer = BufferUtils.createByteBuffer(imageBytes.length);
+            imageBuffer.put(imageBytes);
+            imageBuffer.flip();
+
+            // Load the image from the buffer
             STBImage.stbi_set_flip_vertically_on_load(false); // Disable vertical flip
-            ByteBuffer imageData = STBImage.stbi_load(path, width, height, channels, 4);
+            ByteBuffer imageData = STBImage.stbi_load_from_memory(imageBuffer, width, height, channels, 4);
             if (imageData == null) {
                 System.err.println("Failed to load texture: " + STBImage.stbi_failure_reason());
                 return -1;

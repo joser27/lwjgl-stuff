@@ -56,8 +56,8 @@ public class Game implements IGameLogic {
             world = new World(camera);
             
             // Create player at a reasonable starting position on the ground
-            float startX = 50;
-            float startZ = 50;
+            float startX = 0;
+            float startZ = 0;
             float startY = world.getHeightAt(startX, startZ) + 1.0f; // Start 1 unit above ground
             player = new Player(startX, startY, startZ, camera, world);
             world.setPlayer(player);
@@ -66,7 +66,7 @@ public class Game implements IGameLogic {
             playerRenderer.init();
             
             // Initialize font
-            mystuff.utils.FontLoader.init("resources/fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
+            mystuff.utils.FontLoader.init("fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
             
             // Initialize fog system for horror atmosphere
             fogRenderer = new FogRenderer();

@@ -67,7 +67,7 @@ public class Player extends GameObject {
 
         // Load player texture if not already loaded
         if (playerTexture == -1) {
-            playerTexture = TextureLoader.loadTexture("resources/textures/player.png");
+            playerTexture = TextureLoader.loadTexture("textures/player.png");
             if (playerTexture == -1) {
                 System.err.println("Failed to load player texture!");
             } else {

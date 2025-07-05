@@ -70,9 +70,9 @@ public class HeightmapTerrain {
      * Load terrain textures
      */
     private void loadTextures() {
-        grassTexture = TextureLoader.loadTexture("resources/textures/grass.png");
-        dirtTexture = TextureLoader.loadTexture("resources/textures/dirt.png");
-        stoneTexture = TextureLoader.loadTexture("resources/textures/stone.png");
+        grassTexture = TextureLoader.loadTexture("textures/grass.png");
+        dirtTexture = TextureLoader.loadTexture("textures/dirt.png");
+        stoneTexture = TextureLoader.loadTexture("textures/stone.png");
         
         if (grassTexture == -1) System.err.println("Failed to load grass texture");
         if (dirtTexture == -1) System.err.println("Failed to load dirt texture");
