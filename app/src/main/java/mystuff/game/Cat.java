@@ -32,15 +32,19 @@ public class Cat extends GameObject {
     public void render() {
         if (catModel != null && catModel.isLoaded()) {
             GL11.glPushMatrix();
+            
+            // Position the cat
             GL11.glTranslatef(getX(), getY(), getZ());
-            // Center vertically if needed
-            float[] bounds = catModel.getModelBounds();
-            if (bounds != null) {
-                float yCenter = (bounds[2] + bounds[3]) / 2.0f;
-                GL11.glTranslatef(0, -yCenter, 0);
-            }
-            GL11.glColor3f(1.0f, 0.7f, 0.2f); // Orange-ish for visibility
-            catModel.render(10.0f); // Large scale for visibility
+            
+            // Rotate 90 degrees around X-axis
+            GL11.glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
+            
+            // Scale the cat
+            float scale = 0.1f;
+            
+            // Render the cat model
+            catModel.render(scale);
+            
             GL11.glPopMatrix();
         }
     }

@@ -51,8 +51,8 @@ public class PlayerRenderer {
     }
 
     public void render(Player player, float yaw, float pitch) {
-        // Only render player model if texture is loaded
-        if (playerTexture == -1) return;
+        // Only render player model if texture is loaded AND player is in no-clip mode (third-person view)
+        if (playerTexture == -1 || !player.isNoClipMode()) return;
 
         glPushMatrix();
         

@@ -15,7 +15,7 @@ public class World {
     private static final float TERRAIN_SIZE = 1024.0f; 
     private static final float WORLD_BORDER_MARGIN = 10.0f; // Increased margin for larger terrain
     private static final float WORLD_BORDER_FORCE = 10.0f; // Force to push player back
-    private Cat cat;
+
 
     public World(Camera camera) {
         this.camera = camera;
@@ -34,14 +34,11 @@ public class World {
         this.worldBorder = new WorldBorder(borderMinX, borderMaxX, borderMinZ, borderMaxZ);
         
         generateWorld();
-        // Place the cat at (0, ground, 0)
-        float catGround = terrain.getHeightAt(0, 0);
-        this.cat = new Cat(0, catGround, 0);
     }
 
     private void generateWorld() {
         // Procedural tree generation based on heightmap
-        generateProceduralTrees();
+        //generateProceduralTrees();
 
         if (Debug.showPlayerInfo()) {
             System.out.println("Heightmap terrain generated with procedural trees");
@@ -177,36 +174,13 @@ public class World {
             // Only render trees in nearby chunks
             if (distanceSquared <= treeRenderDistanceSquared) {
                 for (Tree tree : treesInChunk) {
-                    float treeX = tree.getX();
-                    float treeY = tree.getY();
-                    float treeZ = tree.getZ();
-                    
-                    // Use the same frustum culling method as terrain blocks
-                    // Calculate tree bounding box (approximate size for pine trees)
-                    float treeWidth = 24.0f;  // Maximum tree width
-                    float treeHeight = 70.0f; // Maximum tree height
-                    float treeDepth = 24.0f;  // Same as width for cross-pattern trees
-                    
-                    boolean treeInFrustum = isBoxInViewFromPosition(
-                        treeX - treeWidth/2, treeY, treeZ - treeDepth/2,
-                        treeWidth, treeHeight, treeDepth,
-                        cullingX, cullingY, cullingZ,
-                        camera.getPitch(), camera.getYaw()
-                    );
-                    
-                    if (treeInFrustum) {
-                        tree.render();
-                    }
+                    tree.render(); // Always render for debugging
                 }
             }
         }
         
         GL11.glDisable(GL11.GL_BLEND);
         
-        // Render the cat at the end
-        if (cat != null) {
-            cat.render();
-        }
         
         // Render world border (always render, no culling needed)
         if (worldBorder != null) {

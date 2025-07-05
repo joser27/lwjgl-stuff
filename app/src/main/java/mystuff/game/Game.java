@@ -22,6 +22,7 @@ public class Game implements IGameLogic {
     private PlayerRenderer playerRenderer;
     private Timer timer;
     private FogRenderer fogRenderer;
+    private Cat cat;
     
     // Game state
     private boolean wireframeMode = false;
@@ -54,6 +55,8 @@ public class Game implements IGameLogic {
             // Initialize game objects
             camera = new Camera(0, 0, 0);
             world = new World(camera);
+            float catStartY = world.getHeightAt(10, 0) + 20.0f;
+            cat = new Cat(50, catStartY, 50);
             
             // Create player at a reasonable starting position on the ground
             float startX = 0;
@@ -159,6 +162,8 @@ public class Game implements IGameLogic {
         float playerX = camera.getX();
         float playerY = camera.getY();
         float playerZ = camera.getZ();
+
+
         
         // Update player first (for responsive controls)
         player.update(null, interval);
@@ -179,6 +184,7 @@ public class Game implements IGameLogic {
     @Override
     public void render(Window window) {
         try {
+            
             // Ensure we have a valid OpenGL context
             if (!org.lwjgl.opengl.GL.getCapabilities().OpenGL11) {
                 System.err.println("OpenGL 1.1 capabilities are not available. Skipping render cycle.");
@@ -258,11 +264,25 @@ public class Game implements IGameLogic {
             // while the camera can move around freely
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
             
+            // Restore OpenGL state after world/player rendering
+            GL11.glPopAttrib();
+            
+            // Render cat in completely separate OpenGL state
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            GL11.glPushMatrix();
+            
+            // Apply only camera translation for cat (no rotation)
+            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
+            
+            // Render cat
+            cat.render();
+            
+            // Restore OpenGL state
+            GL11.glPopMatrix();
+            GL11.glPopAttrib();
+            
             // Render UI
             renderUI(window);
-            
-            // Restore state
-            GL11.glPopAttrib();
             
             // Always reset polygon mode after rendering
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);

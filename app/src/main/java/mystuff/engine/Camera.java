@@ -69,4 +69,13 @@ public class Camera {
         this.z = z;
         matricesDirty = true;
     }
+
+    public void setYaw(float yaw) {
+        this.yaw = yaw;
+        matricesDirty = true;
+    }
+    public void setPitch(float pitch) {
+        this.pitch = pitch;
+        matricesDirty = true;
+    }
 } 
