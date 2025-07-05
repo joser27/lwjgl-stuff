@@ -3,6 +3,7 @@ package mystuff.utils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL30;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
@@ -93,12 +94,15 @@ public class TextureLoader {
                 // Bind the texture
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureID);
 
-                // Set low quality parameters
+                // Set high quality parameters
                 setLowQualityParameters();
 
                 // Upload the texture data with alpha channel preserved
                 GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width.get(), height.get(), 0,
                         GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, imageData);
+                
+                // Generate mipmaps for better quality at different distances
+                GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
 
                 // Cache and return the texture ID
                 textureCache.put(path, textureID);
@@ -116,25 +120,25 @@ public class TextureLoader {
     }
     
     /**
-     * Sets texture parameters for low quality/high performance rendering
+     * Sets texture parameters for high quality rendering
      */
     private static void setLowQualityParameters() {
-        // Use nearest neighbor filtering for that pixelated look
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        // Use linear filtering for smooth, high-quality textures
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         
         // Use repeat mode for texture coordinates
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
         
-        // Disable texture LOD bias for that classic PS1 look
-        GL14.glTexParameterf(GL11.GL_TEXTURE_2D, GL14.GL_TEXTURE_LOD_BIAS, -2.0f);
+        // Enable anisotropic filtering for even better quality (if supported)
+        if (GL11.glGetString(GL11.GL_EXTENSIONS).contains("GL_EXT_texture_filter_anisotropic")) {
+            float maxAnisotropy = GL11.glGetFloat(0x84FF); // GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
+            GL11.glTexParameterf(GL11.GL_TEXTURE_2D, 0x84FE, maxAnisotropy); // GL_TEXTURE_MAX_ANISOTROPY_EXT
+        }
         
-        // Set texture priority to lowest for better memory management
-        GL11.glTexParameterf(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_PRIORITY, 0.1f);
-        
-        // Hint to OpenGL that we prefer speed over quality
-        GL11.glHint(GL11.GL_PERSPECTIVE_CORRECTION_HINT, GL11.GL_FASTEST);
+        // Hint to OpenGL that we prefer quality over speed
+        GL11.glHint(GL11.GL_PERSPECTIVE_CORRECTION_HINT, GL11.GL_NICEST);
     }
 
     /**
