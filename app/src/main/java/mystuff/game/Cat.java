@@ -11,10 +11,10 @@ public class Cat extends GameObject {
     public Cat(float x, float y, float z) {
         super(x, y, z);
         if (!triedLoad) {
-            catModel = new OBJModelRenderer("models/cat.obj");
+            catModel = new OBJModelRenderer("models/cat.obj", "textures/Cat_diffuse.jpg");
             triedLoad = true;
             if (catModel.isLoaded()) {
-                System.out.println("Cat OBJ loaded! Vertices: " + catModel.getVertexCount());
+                System.out.println("Cat OBJ with texture loaded! Vertices: " + catModel.getVertexCount());
                 float[] bounds = catModel.getModelBounds();
                 if (bounds != null) {
                     System.out.printf("Cat bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
@@ -23,7 +23,7 @@ public class Cat extends GameObject {
                         bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4]);
                 }
             } else {
-                System.err.println("Failed to load cat.obj!");
+                System.err.println("Failed to load cat.obj or texture!");
             }
         }
     }

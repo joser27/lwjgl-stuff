@@ -1,6 +1,7 @@
 package mystuff.utils;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL11.glLightfv;
 
 public class OBJModelRenderer {
     
@@ -31,16 +32,50 @@ public class OBJModelRenderer {
             return;
         }
         
-        // Enable texturing if we have a texture
+        // BALANCED APPROACH - Fix gaps while maintaining proper depth
+        
+        // 1. Enable depth testing with proper function
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        
+        // 2. Enable face culling with proper winding
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+        
+        // 3. Use smooth shading for better appearance
+        glShadeModel(GL_SMOOTH);
+        
+        // 4. Enable lighting for proper depth perception
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+        glEnable(GL_COLOR_MATERIAL);
+        
+        // 5. Set up lighting for better appearance
+        float[] lightPosition = {100.0f, 100.0f, 100.0f, 1.0f};
+        float[] lightAmbient = {0.3f, 0.3f, 0.3f, 1.0f};
+        float[] lightDiffuse = {0.8f, 0.8f, 0.8f, 1.0f};
+        float[] lightSpecular = {0.5f, 0.5f, 0.5f, 1.0f};
+        
+        glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
+        
+        // 6. Enable polygon offset to prevent z-fighting
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0f, 1.0f);
+        
+        // 7. Enable texturing if we have a texture
         if (textureId != -1) {
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, textureId);
         }
         
-        // Set color to white for proper texture rendering
+        // 6. Set color to white for proper texture rendering
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
-        // Render the model using immediate mode
+        // 7. Render the model using proper indexing
         glBegin(GL_TRIANGLES);
         
         for (int i = 0; i < modelData.indices.length; i += 3) {
@@ -52,26 +87,17 @@ public class OBJModelRenderer {
             if (textureId != -1 && modelData.texCoords.length > index1 * 2 + 1) {
                 glTexCoord2f(modelData.texCoords[index1 * 2], modelData.texCoords[index1 * 2 + 1]);
             }
-            if (modelData.normals.length > index1 * 3 + 2) {
-                glNormal3f(modelData.normals[index1 * 3], modelData.normals[index1 * 3 + 1], modelData.normals[index1 * 3 + 2]);
-            }
             glVertex3f(modelData.vertices[index1 * 3], modelData.vertices[index1 * 3 + 1], modelData.vertices[index1 * 3 + 2]);
             
             // Second vertex
             if (textureId != -1 && modelData.texCoords.length > index2 * 2 + 1) {
                 glTexCoord2f(modelData.texCoords[index2 * 2], modelData.texCoords[index2 * 2 + 1]);
             }
-            if (modelData.normals.length > index2 * 3 + 2) {
-                glNormal3f(modelData.normals[index2 * 3], modelData.normals[index2 * 3 + 1], modelData.normals[index2 * 3 + 2]);
-            }
             glVertex3f(modelData.vertices[index2 * 3], modelData.vertices[index2 * 3 + 1], modelData.vertices[index2 * 3 + 2]);
             
             // Third vertex
             if (textureId != -1 && modelData.texCoords.length > index3 * 2 + 1) {
                 glTexCoord2f(modelData.texCoords[index3 * 2], modelData.texCoords[index3 * 2 + 1]);
-            }
-            if (modelData.normals.length > index3 * 3 + 2) {
-                glNormal3f(modelData.normals[index3 * 3], modelData.normals[index3 * 3 + 1], modelData.normals[index3 * 3 + 2]);
             }
             glVertex3f(modelData.vertices[index3 * 3], modelData.vertices[index3 * 3 + 1], modelData.vertices[index3 * 3 + 2]);
         }
@@ -82,6 +108,12 @@ public class OBJModelRenderer {
         if (textureId != -1) {
             glDisable(GL_TEXTURE_2D);
         }
+        
+        // Restore OpenGL states
+        glDisable(GL_LIGHTING);
+        glDisable(GL_LIGHT0);
+        glDisable(GL_COLOR_MATERIAL);
+        glDisable(GL_POLYGON_OFFSET_FILL);
     }
     
     public void render(float scale) {
