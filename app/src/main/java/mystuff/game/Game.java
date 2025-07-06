@@ -270,14 +270,17 @@ public class Game implements IGameLogic {
                 GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             }
             
-            // Update frustum for culling
-            camera.update();
+            // Update frustum for culling (DISABLED FOR TESTING)
+            // camera.update();
             
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
             // Render terrain and world objects FIRST
+            // Disable depth writing for terrain to prevent interference with models
+            GL11.glDepthMask(false);
             world.render(camera);
+            GL11.glDepthMask(true);
             
             // When in no-clip mode, the player body should remain stationary
             // while the camera can move around freely
@@ -286,7 +289,7 @@ public class Game implements IGameLogic {
             // Restore OpenGL state after world/player rendering
             GL11.glPopAttrib();
             
-            // Render models with proper depth handling
+            // Render models with normal depth testing (terrain won't interfere now)
             // Render cat
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             GL11.glPushMatrix();
@@ -294,8 +297,9 @@ public class Game implements IGameLogic {
             // Apply only camera translation for cat (no rotation)
             GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             
-            // Disable depth testing to ensure models are always visible
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            // Normal depth testing - terrain won't interfere since it doesn't write to depth buffer
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
             
             // Render cat
             cat.render();
@@ -310,8 +314,9 @@ public class Game implements IGameLogic {
             // Apply only camera translation for mage (no rotation)
             GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             
-            // Disable depth testing to ensure models are always visible
-            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            // Normal depth testing - terrain won't interfere since it doesn't write to depth buffer
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
             
             // Render mage
             if (mage != null) {

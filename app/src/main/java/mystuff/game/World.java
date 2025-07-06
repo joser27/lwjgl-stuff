@@ -135,8 +135,8 @@ public class World {
     }
 
     public void render(Camera camera) {
-        // Update camera frustum
-        camera.update();
+        // Update camera frustum (DISABLED FOR TESTING)
+        // camera.update();
         
         // Save OpenGL state
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
