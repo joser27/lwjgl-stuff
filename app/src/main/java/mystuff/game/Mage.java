@@ -161,6 +161,7 @@ public class Mage extends GameObject {
         if (isPlaying) {
             animationTime += deltaTime;
         }
+        this.x += 0.01f;
     }
     
     public void cleanup() {

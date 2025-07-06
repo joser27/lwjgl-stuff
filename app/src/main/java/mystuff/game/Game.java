@@ -17,13 +17,13 @@ import mystuff.utils.FogRenderer;
 public class Game implements IGameLogic {
     // Core components
     private Camera camera;
-    private Player player;
     private World world;
     private PlayerRenderer playerRenderer;
     private Timer timer;
     private FogRenderer fogRenderer;
-    private Cat cat;
-    private Mage mage;
+    
+    // Entity management
+    private EntityManager entityManager;
     
     // Game state
     private boolean wireframeMode = false;
@@ -56,22 +56,36 @@ public class Game implements IGameLogic {
             // Initialize game objects
             camera = new Camera(0, 0, 0);
             world = new World(camera);
+            entityManager = new EntityManager();
+            
+            // Create entities
             float catStartY = world.getHeightAt(10, 0);
-            cat = new Cat(50, catStartY, 50);
+            Cat cat = new Cat(50, catStartY, 50);
+            entityManager.addEntity(cat);
             
             // Create mage for animation testing
             float mageStartY = world.getHeightAt(50, 0);
-            mage = new Mage(40, mageStartY, 40);
+            Mage mage = new Mage(40, mageStartY, 40);
             mage.setLooping(true); // Make the animation loop
             mage.playAttackAnimation(); // Start the animation immediately
             System.out.println("Mage created at position: (10, " + mageStartY + ", 10)");
+            entityManager.addEntity(mage);
+            
+            // Create beggar for walk animation testing
+            float beggarStartY = world.getHeightAt(30, 30);
+            Beggar beggar = new Beggar(30, beggarStartY, 30, world);
+            beggar.setLooping(true); // Make the walk animation loop
+            beggar.startWalking(); // Start walking immediately
+            System.out.println("Beggar created at position: (30, " + beggarStartY + ", 30)");
+            entityManager.addEntity(beggar);
             
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;
             float startY = world.getHeightAt(startX, startZ) + 1.0f; // Start 1 unit above ground
-            player = new Player(startX, startY, startZ, camera, world);
+            Player player = new Player(startX, startY, startZ, camera, world);
             world.setPlayer(player);
+            entityManager.addEntity(player);
             
             playerRenderer = new PlayerRenderer();
             playerRenderer.init();
@@ -91,7 +105,10 @@ public class Game implements IGameLogic {
             
             // Set up mouse callback
             GLFW.glfwSetCursorPosCallback(window.getWindowHandle(), (windowHandle, xpos, ypos) -> {
-                player.handleMouseInput((float)xpos, (float)ypos);
+                Player currentPlayer = entityManager.getPlayer();
+                if (currentPlayer != null) {
+                    currentPlayer.handleMouseInput((float)xpos, (float)ypos);
+                }
             });
             
             // Initialize performance metrics
@@ -125,7 +142,10 @@ public class Game implements IGameLogic {
         // No-clip mode toggle
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_N)) {
             System.out.println("Game: N key detected!");
-            player.toggleNoClipMode();
+            Player player = entityManager.getPlayer();
+            if (player != null) {
+                player.toggleNoClipMode();
+            }
         }
         
         // Debug: Check if N key is being pressed at all
@@ -151,9 +171,26 @@ public class Game implements IGameLogic {
         }
         
         // Start mage attack animation with M key
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_M) && mage != null) {
-            mage.playAttackAnimation();
-            System.out.println("Started mage attack animation!");
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_M)) {
+            Mage mage = entityManager.getFirstEntityOfType(Mage.class);
+            if (mage != null) {
+                mage.playAttackAnimation();
+                System.out.println("Started mage attack animation!");
+            }
+        }
+        
+        // Toggle beggar walking animation with B key
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_B)) {
+            Beggar beggar = entityManager.getFirstEntityOfType(Beggar.class);
+            if (beggar != null) {
+                if (beggar.isWalking()) {
+                    beggar.stopWalking();
+                    System.out.println("Beggar stopped walking!");
+                } else {
+                    beggar.startWalking();
+                    System.out.println("Beggar started walking!");
+                }
+            }
         }
         
         // Time scaling with [ and ] keys
@@ -179,16 +216,11 @@ public class Game implements IGameLogic {
 
 
         
-        // Update player first (for responsive controls)
-        player.update(null, interval);
+        // Update entities (includes player, cat, mage, etc.)
+        entityManager.update(null, interval);
         
         // Update world
         world.update(interval);
-        
-        // Update mage animation
-        if (mage != null) {
-            mage.update(null, interval);
-        }
         
         // Update fog system
         fogRenderer.update(interval);
@@ -261,7 +293,8 @@ public class Game implements IGameLogic {
             GL11.glRotatef(camera.getYaw(), 0.0f, 1.0f, 0.0f);
             
             // Set up the camera transform based on current view/mode
-            if (player.isNoClipMode()) {
+            Player player = entityManager.getPlayer();
+            if (player != null && player.isNoClipMode()) {
                 // In no-clip mode, the camera moves freely (spectator view)
                 // while player body stays at its original position
                 GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
@@ -285,17 +318,12 @@ public class Game implements IGameLogic {
             // Terrain should write to depth buffer for proper depth testing
             world.render(camera);
             
-            // Render solid models (player, cat, mage) with proper depth testing
-            // When in no-clip mode, the player body should remain stationary
-            // while the camera can move around freely
-            playerRenderer.render(player, camera.getYaw(), camera.getPitch());
+            // Render all entities (player, cat, mage, etc.)
+            entityManager.render();
             
-            // Render cat
-            cat.render();
-            
-            // Render mage
-            if (mage != null) {
-                mage.render();
+            // Render player with special renderer (for texture mapping)
+            if (player != null) {
+                playerRenderer.render(player, camera.getYaw(), camera.getPitch());
             }
             
             // Restore OpenGL state after solid object rendering
@@ -400,12 +428,13 @@ public class Game implements IGameLogic {
                 camera.getPitch(), camera.getYaw());
             renderText(rotText, 10, 50);
             
-            if (player != null) {
-                String modeText = "Mode: " + (player.isNoClipMode() ? "NoClip" : "Normal");
+            Player currentPlayer = entityManager.getPlayer();
+            if (currentPlayer != null) {
+                String modeText = "Mode: " + (currentPlayer.isNoClipMode() ? "NoClip" : "Normal");
                 renderText(modeText, 10, 70);
                 
                 // Display sprint status
-                if (player.isSprinting()) {
+                if (currentPlayer.isSprinting()) {
                     GL11.glColor3f(0.0f, 1.0f, 0.0f); // Green for sprint
                     renderText("SPRINTING", 10, 90);
                     GL11.glColor3f(1.0f, 1.0f, 1.0f); // Reset color
@@ -428,10 +457,19 @@ public class Game implements IGameLogic {
             }
             
             // Mage animation info
-            if (mage != null) {
-                renderText(String.format("Mage Animation: %s", mage.isPlaying() ? "Playing" : "Stopped"), 10, 210);
-                renderText(String.format("Frame: %d/%d", mage.getCurrentFrame() + 1, mage.getTotalFrames()), 10, 230);
+            Mage currentMage = entityManager.getFirstEntityOfType(Mage.class);
+            if (currentMage != null) {
+                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 210);
+                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 230);
                 renderText("Press M to start attack animation", 10, 250);
+            }
+            
+            // Beggar animation info
+            Beggar currentBeggar = entityManager.getFirstEntityOfType(Beggar.class);
+            if (currentBeggar != null) {
+                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 270);
+                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 290);
+                renderText("Press B to toggle walk animation", 10, 310);
             }
         }
         
@@ -488,11 +526,10 @@ public class Game implements IGameLogic {
 
     @Override
     public void cleanup() {
-        if (player != null) player.cleanup();
+        if (entityManager != null) entityManager.cleanup();
         if (world != null) world.cleanup();
         if (playerRenderer != null) playerRenderer.cleanup();
         if (fogRenderer != null) fogRenderer.cleanup();
-        if (mage != null) mage.cleanup();
         mystuff.utils.TextureLoader.cleanup();
         mystuff.utils.FontLoader.cleanup();
     }
