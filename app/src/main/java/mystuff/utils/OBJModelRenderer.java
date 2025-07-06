@@ -47,13 +47,15 @@ public class OBJModelRenderer {
         // Set color to white for proper texture rendering
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
-        // Render the model using triangle indices
-        glBegin(GL_TRIANGLES);
+        // Only render front faces to avoid the "mirror" effect
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
         
+        glBegin(GL_TRIANGLES);
         for (int i = 0; i < modelData.indices.length; i += 3) {
             renderTriangle(modelData.indices[i], modelData.indices[i + 1], modelData.indices[i + 2]);
         }
-        
         glEnd();
         
         // Cleanup OpenGL states

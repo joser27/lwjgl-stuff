@@ -276,7 +276,7 @@ public class Game implements IGameLogic {
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
-            // Render game objects
+            // Render terrain and world objects FIRST
             world.render(camera);
             
             // When in no-clip mode, the player body should remain stationary
@@ -286,33 +286,38 @@ public class Game implements IGameLogic {
             // Restore OpenGL state after world/player rendering
             GL11.glPopAttrib();
             
-            // Render cat in completely separate OpenGL state
+            // Render models with proper depth handling
+            // Render cat
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             GL11.glPushMatrix();
             
             // Apply only camera translation for cat (no rotation)
             GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             
+            // Disable depth testing to ensure models are always visible
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            
             // Render cat
             cat.render();
             
-            // Restore OpenGL state
             GL11.glPopMatrix();
             GL11.glPopAttrib();
             
-            // Render mage animation in separate OpenGL state
+            // Render mage with same approach
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             GL11.glPushMatrix();
             
             // Apply only camera translation for mage (no rotation)
             GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             
+            // Disable depth testing to ensure models are always visible
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            
             // Render mage
             if (mage != null) {
                 mage.render();
             }
             
-            // Restore OpenGL state
             GL11.glPopMatrix();
             GL11.glPopAttrib();
             
