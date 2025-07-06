@@ -56,12 +56,12 @@ public class Game implements IGameLogic {
             // Initialize game objects
             camera = new Camera(0, 0, 0);
             world = new World(camera);
-            float catStartY = world.getHeightAt(10, 0) + 20.0f;
+            float catStartY = world.getHeightAt(10, 0);
             cat = new Cat(50, catStartY, 50);
             
             // Create mage for animation testing
-            float mageStartY = world.getHeightAt(50, 0) + 5.0f;
-            mage = new Mage(40, mageStartY+10, 40);
+            float mageStartY = world.getHeightAt(50, 0);
+            mage = new Mage(40, mageStartY, 40);
             mage.setLooping(true); // Make the animation loop
             mage.playAttackAnimation(); // Start the animation immediately
             System.out.println("Mage created at position: (10, " + mageStartY + ", 10)");
@@ -273,57 +273,32 @@ public class Game implements IGameLogic {
             // Update frustum for culling (DISABLED FOR TESTING)
             // camera.update();
             
+            // Enable proper depth testing for all objects
+            GL11.glEnable(GL11.GL_DEPTH_TEST);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GL11.glDepthMask(true);
+            
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
-            // Render terrain and world objects FIRST
-            // Disable depth writing for terrain to prevent interference with models
-            GL11.glDepthMask(false);
+            // Render terrain and world objects FIRST (opaque objects)
+            // Terrain should write to depth buffer for proper depth testing
             world.render(camera);
-            GL11.glDepthMask(true);
             
+            // Render solid models (player, cat, mage) with proper depth testing
             // When in no-clip mode, the player body should remain stationary
             // while the camera can move around freely
             playerRenderer.render(player, camera.getYaw(), camera.getPitch());
             
-            // Restore OpenGL state after world/player rendering
-            GL11.glPopAttrib();
-            
-            // Render models with normal depth testing (terrain won't interfere now)
-            // Render cat
-            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-            GL11.glPushMatrix();
-            
-            // Apply only camera translation for cat (no rotation)
-            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
-            
-            // Normal depth testing - terrain won't interfere since it doesn't write to depth buffer
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            
             // Render cat
             cat.render();
-            
-            GL11.glPopMatrix();
-            GL11.glPopAttrib();
-            
-            // Render mage with same approach
-            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
-            GL11.glPushMatrix();
-            
-            // Apply only camera translation for mage (no rotation)
-            GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
-            
-            // Normal depth testing - terrain won't interfere since it doesn't write to depth buffer
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
             
             // Render mage
             if (mage != null) {
                 mage.render();
             }
             
-            GL11.glPopMatrix();
+            // Restore OpenGL state after solid object rendering
             GL11.glPopAttrib();
             
             // Render UI

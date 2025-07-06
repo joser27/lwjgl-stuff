@@ -38,7 +38,7 @@ public class World {
 
     private void generateWorld() {
         // Procedural tree generation based on heightmap
-        //generateProceduralTrees();
+        generateProceduralTrees();
 
         if (Debug.showPlayerInfo()) {
             System.out.println("Heightmap terrain generated with procedural trees");
