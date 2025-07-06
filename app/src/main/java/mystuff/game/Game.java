@@ -79,6 +79,14 @@ public class Game implements IGameLogic {
             System.out.println("Beggar created at position: (30, " + beggarStartY + ", 30)");
             entityManager.addEntity(beggar);
             
+            // Create house on the map
+            float houseX = 100.0f;
+            float houseZ = 100.0f;
+            float houseY = world.getHeightAt(houseX, houseZ);
+            Map house = new Map(houseX, houseY, houseZ);
+            System.out.println("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")");
+            entityManager.addEntity(house);
+            
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;

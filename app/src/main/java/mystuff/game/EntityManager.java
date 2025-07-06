@@ -154,6 +154,8 @@ public class EntityManager {
                          ((Beggar) entity).cleanup();
                      } else if (entity instanceof Player) {
                          ((Player) entity).cleanup();
+                     } else if (entity instanceof Map) {
+                         ((Map) entity).cleanup();
                      }
                  } catch (Exception e) {
                     System.err.println("Error cleaning up entity: " + e.getMessage());
