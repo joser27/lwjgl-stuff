@@ -25,6 +25,10 @@ dependencies {
     runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-stb::$lwjglNatives"
+    
+    // glTF support for GLB models
+    implementation 'de.javagl:jgltf-model:2.0.3'
+    implementation 'de.javagl:jgltf-impl-v2:2.0.3'
 }
 
 java {

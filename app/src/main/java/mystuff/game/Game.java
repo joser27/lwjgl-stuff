@@ -83,7 +83,7 @@ public class Game implements IGameLogic {
             float houseX = 100.0f;
             float houseZ = 100.0f;
             float houseY = world.getHeightAt(houseX, houseZ);
-            Map house = new Map(houseX, houseY, houseZ);
+            HouseMap house = new HouseMap(houseX, houseY, houseZ);
             System.out.println("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")");
             entityManager.addEntity(house);
             

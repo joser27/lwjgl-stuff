@@ -135,7 +135,6 @@ public class FogRenderer {
     public void applyFog() {
         if (!fogEnabled) {
             glDisable(GL_FOG);
-            System.out.println("Fog disabled");
             return;
         }
         
