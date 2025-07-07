@@ -37,10 +37,22 @@ public class GLBModelRenderer {
             GLBMaterial material = modelData.materials[i];
             
             if (material.diffuseTexture != null) {
-                // TODO: STB has issues with embedded GLB textures - temporarily disable
-                System.out.println("Material " + i + " (" + material.name + ") has texture data (" + 
-                                 material.diffuseTexture.length + " bytes) - texture loading disabled");
-                textureIds[i] = -1;
+                // Try to load external texture file based on material name
+                String texturePath = "textures/" + material.name.toLowerCase() + ".png";
+                int textureId = TextureLoader.loadTexture(texturePath);
+                
+                if (textureId == -1) {
+                    // Try .jpg extension
+                    texturePath = "textures/" + material.name.toLowerCase() + ".jpg";
+                    textureId = TextureLoader.loadTexture(texturePath);
+                }
+                
+                textureIds[i] = textureId;
+                if (textureId != -1) {
+                    System.out.println("Material " + i + " (" + material.name + ") loaded external texture: " + texturePath);
+                } else {
+                    System.out.println("Material " + i + " (" + material.name + ") - no matching texture file found");
+                }
             } else {
                 textureIds[i] = -1;
             }
