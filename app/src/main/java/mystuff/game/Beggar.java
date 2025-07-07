@@ -17,7 +17,8 @@ public class Beggar extends GameObject {
     private float animationTime;
     private boolean isWalking;
     private boolean isLooping;
-    private World world; // Reference to world for terrain height
+    private World world; // Reference to world for terrain height (can be null)
+    private static final float GROUND_LEVEL = 17.0f; // Fixed ground level when no terrain
     private float walkDirection = 1.0f; // 1.0f for positive x, -1.0f for negative x
     private float walkRange = 50.0f; // How far to walk before turning around
     private float startX; // Starting position to calculate walk range
@@ -180,10 +181,13 @@ public class Beggar extends GameObject {
                 rotY = walkDirection > 0 ? 90.0f : 270.0f;
             }
             
-            // Update Y position to follow terrain height
+            // Update Y position to follow terrain height or use fixed ground level
             if (world != null) {
                 float terrainHeight = world.getHeightAt(x, z);
                 y = terrainHeight;
+            } else {
+                // Use fixed ground level when no terrain system
+                y = GROUND_LEVEL;
             }
         }
     }

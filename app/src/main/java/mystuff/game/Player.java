@@ -22,7 +22,8 @@ public class Player extends GameObject {
     private float lastX = 400, lastY = 300;
     private float velocity = 0.0f;
     private float gravity = -25.0f; // Increased gravity for better feel
-    private World world;  // Reference to the world
+    // private World world;  // Reference to the world - COMMENTED OUT
+    private static final float GROUND_LEVEL = 17.0f; // Fixed ground level instead of terrain
     private boolean isOnGround = false;
     private float jumpForce = 12.0f;  // Increased jump force for better feel
     private boolean debugMode = true;  // Add debug mode
@@ -58,7 +59,7 @@ public class Player extends GameObject {
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
-        this.world = world;
+        // this.world = world; // Commented out - no terrain
         // Set initial camera position to player position at eye level (slightly lower than before)
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z); // Eye level at approximately head height
         
@@ -115,10 +116,10 @@ public class Player extends GameObject {
             } else {
                 System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b%n", 
                     x, y, z, velocity, isOnGround);
-                // Show world border info only in normal mode
-                float[] bounds = world.getWorldBorderBounds();
-                System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
-                    bounds[0], bounds[1], bounds[2], bounds[3]);
+                // Show world border info only in normal mode - COMMENTED OUT
+                // float[] bounds = world.getWorldBorderBounds();
+                // System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
+                //     bounds[0], bounds[1], bounds[2], bounds[3]);
             }
         }
     }
@@ -221,15 +222,15 @@ public class Player extends GameObject {
             x += finalMoveX;
             z += finalMoveZ;
             
-            // Apply world border constraints
-            float[] borderPos = world.applyWorldBorderForce(x, z);
-            x = borderPos[0];
-            z = borderPos[1];
+            // Apply world border constraints - COMMENTED OUT (no world borders)
+            // float[] borderPos = world.applyWorldBorderForce(x, z);
+            // x = borderPos[0];
+            // z = borderPos[1];
         }
     }
     
     /**
-     * Handle heightmap-based collision and movement
+     * Handle ground collision with fixed ground level (no terrain)
      */
     private void updateHeightmapCollision(float deltaTime) {
         // Skip physics in no-clip mode
@@ -237,8 +238,8 @@ public class Player extends GameObject {
             return;
         }
         
-        // Get ground height at current position
-        float groundHeight = world.getHeightAt(x, z);
+        // Use fixed ground height instead of terrain
+        float groundHeight = GROUND_LEVEL;
         
         // Debug output to see what's happening
         if (Debug.showPlayerInfo()) {

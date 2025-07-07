@@ -17,7 +17,7 @@ import mystuff.utils.FogRenderer;
 public class Game implements IGameLogic {
     // Core components
     private Camera camera;
-    private World world;
+    // private World world; // Commented out - no terrain
     private PlayerRenderer playerRenderer;
     private Timer timer;
     private FogRenderer fogRenderer;
@@ -55,25 +55,27 @@ public class Game implements IGameLogic {
             
             // Initialize game objects
             camera = new Camera(0, 0, 0);
-            world = new World(camera);
+            //world = new World(camera);
             entityManager = new EntityManager();
             
-            // Create entities
-            float catStartY = world.getHeightAt(10, 0);
+            // Create entities (using fixed ground level y=17)
+            float groundLevel = 17.0f;
+            
+            float catStartY = groundLevel;
             Cat cat = new Cat(50, catStartY, 50);
-            entityManager.addEntity(cat);
+            //entityManager.addEntity(cat);
             
             // Create mage for animation testing
-            float mageStartY = world.getHeightAt(50, 0);
+            float mageStartY = groundLevel;
             Mage mage = new Mage(40, mageStartY, 40);
             mage.setLooping(true); // Make the animation loop
             mage.playAttackAnimation(); // Start the animation immediately
-            System.out.println("Mage created at position: (10, " + mageStartY + ", 10)");
-            entityManager.addEntity(mage);
+            System.out.println("Mage created at position: (40, " + mageStartY + ", 40)");
+            //entityManager.addEntity(mage);
             
-            // Create beggar for walk animation testing
-            float beggarStartY = world.getHeightAt(30, 30);
-            Beggar beggar = new Beggar(30, beggarStartY, 30, world);
+            // Create beggar for walk animation testing (no world reference)
+            float beggarStartY = groundLevel;
+            Beggar beggar = new Beggar(30, beggarStartY, 30, null); // Pass null for world
             beggar.setLooping(true); // Make the walk animation loop
             beggar.startWalking(); // Start walking immediately
             System.out.println("Beggar created at position: (30, " + beggarStartY + ", 30)");
@@ -82,7 +84,7 @@ public class Game implements IGameLogic {
             // Create house on the map
             float houseX = 100.0f;
             float houseZ = 100.0f;
-            float houseY = world.getHeightAt(houseX, houseZ);
+            float houseY = groundLevel; // Use fixed ground level
             HouseMap house = new HouseMap(houseX, houseY, houseZ);
             System.out.println("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")");
             entityManager.addEntity(house);
@@ -90,9 +92,9 @@ public class Game implements IGameLogic {
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;
-            float startY = world.getHeightAt(startX, startZ) + 1.0f; // Start 1 unit above ground
-            Player player = new Player(startX, startY, startZ, camera, world);
-            world.setPlayer(player);
+            float startY = groundLevel + 1.0f; // Start 1 unit above ground level
+            Player player = new Player(startX, startY, startZ, camera, null); // Pass null for world
+            // world.setPlayer(player); // Commented out - no world
             entityManager.addEntity(player);
             
             playerRenderer = new PlayerRenderer();
@@ -227,8 +229,8 @@ public class Game implements IGameLogic {
         // Update entities (includes player, cat, mage, etc.)
         entityManager.update(null, interval);
         
-        // Update world
-        world.update(interval);
+        // Update world (commented out - no terrain)
+        // world.update(interval);
         
         // Update fog system
         fogRenderer.update(interval);
@@ -322,9 +324,9 @@ public class Game implements IGameLogic {
             // Save initial state
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             
-            // Render terrain and world objects FIRST (opaque objects)
+            // Render terrain and world objects FIRST (opaque objects) - COMMENTED OUT
             // Terrain should write to depth buffer for proper depth testing
-            world.render(camera);
+            // world.render(camera);
             
             // Render all entities (player, cat, mage, etc.)
             entityManager.render();
@@ -535,7 +537,7 @@ public class Game implements IGameLogic {
     @Override
     public void cleanup() {
         if (entityManager != null) entityManager.cleanup();
-        if (world != null) world.cleanup();
+        // if (world != null) world.cleanup(); // Commented out - no world
         if (playerRenderer != null) playerRenderer.cleanup();
         if (fogRenderer != null) fogRenderer.cleanup();
         mystuff.utils.TextureLoader.cleanup();

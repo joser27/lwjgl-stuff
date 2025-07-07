@@ -37,13 +37,13 @@ public class GLBModelRenderer {
             GLBMaterial material = modelData.materials[i];
             
             if (material.diffuseTexture != null) {
-                // Try to load external texture file based on material name
-                String texturePath = "textures/" + material.name.toLowerCase() + ".png";
+                // Try to load external texture file from house subfolder based on material name
+                String texturePath = "textures/house/" + material.name.toLowerCase() + ".png";
                 int textureId = TextureLoader.loadTexture(texturePath);
                 
                 if (textureId == -1) {
                     // Try .jpg extension
-                    texturePath = "textures/" + material.name.toLowerCase() + ".jpg";
+                    texturePath = "textures/house/" + material.name.toLowerCase() + ".jpg";
                     textureId = TextureLoader.loadTexture(texturePath);
                 }
                 
