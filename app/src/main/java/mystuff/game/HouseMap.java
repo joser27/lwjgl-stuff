@@ -14,9 +14,9 @@ public class HouseMap extends GameObject {
     public HouseMap(float x, float y, float z) {
         super(x, y, z);
         if (!triedLoad) {
-            // Try to load the GLB house model
-            // GLB models have embedded textures, so no separate texture path needed
-            houseModel = new GLBModelRenderer(HOUSE_GLB);
+            // Try to load the GLB house model with texture
+            // Use missing_texture.jpg for testing texture support
+            houseModel = new GLBModelRenderer(HOUSE_GLB, "textures/missing_texture.jpg");
             triedLoad = true;
             if (houseModel.isLoaded()) {
                 System.out.println("House GLB loaded! Vertices: " + houseModel.getVertexCount());

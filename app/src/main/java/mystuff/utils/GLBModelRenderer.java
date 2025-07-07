@@ -119,6 +119,9 @@ public class GLBModelRenderer {
                 glTexCoord2f(0.0f, 0.0f);
             }
         }
+        if (modelData.normals.length > index1 * 3 + 2) {
+            glNormal3f(modelData.normals[index1 * 3], modelData.normals[index1 * 3 + 1], modelData.normals[index1 * 3 + 2]);
+        }
         glVertex3f(modelData.vertices[index1 * 3], modelData.vertices[index1 * 3 + 1], modelData.vertices[index1 * 3 + 2]);
         
         // Render second vertex
@@ -129,6 +132,9 @@ public class GLBModelRenderer {
                 glTexCoord2f(1.0f, 0.0f);
             }
         }
+        if (modelData.normals.length > index2 * 3 + 2) {
+            glNormal3f(modelData.normals[index2 * 3], modelData.normals[index2 * 3 + 1], modelData.normals[index2 * 3 + 2]);
+        }
         glVertex3f(modelData.vertices[index2 * 3], modelData.vertices[index2 * 3 + 1], modelData.vertices[index2 * 3 + 2]);
         
         // Render third vertex
@@ -138,6 +144,9 @@ public class GLBModelRenderer {
             } else {
                 glTexCoord2f(0.5f, 1.0f);
             }
+        }
+        if (modelData.normals.length > index3 * 3 + 2) {
+            glNormal3f(modelData.normals[index3 * 3], modelData.normals[index3 * 3 + 1], modelData.normals[index3 * 3 + 2]);
         }
         glVertex3f(modelData.vertices[index3 * 3], modelData.vertices[index3 * 3 + 1], modelData.vertices[index3 * 3 + 2]);
     }
