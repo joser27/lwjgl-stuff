@@ -13,6 +13,7 @@ public class GLBModelRenderer {
     
     private GLBModelData modelData;
     private int[] textureIds;
+    private int whiteTextureId = -1;
     
     public GLBModelRenderer(String glbFilePath) {
         this.modelData = GLBLoader.loadGLBModel(glbFilePath);
@@ -32,31 +33,72 @@ public class GLBModelRenderer {
         }
         
         textureIds = new int[modelData.materials.length];
+        String fallbackTexture = "textures/missing_texture.jpg";
+        int fallbackTextureId = TextureLoader.loadTexture(fallbackTexture);
+        if (fallbackTextureId == -1) {
+            System.err.println("Failed to load fallback texture: " + fallbackTexture);
+        } else {
+            System.out.println("Fallback texture loaded successfully with ID: " + fallbackTextureId);
+        }
+        
+        // List all materials that need textures (only first 10 to avoid spam)
+        System.out.println("=== Materials needing textures (showing first 10) ===");
+        for (int i = 0; i < Math.min(10, modelData.materials.length); i++) {
+            GLBMaterial material = modelData.materials[i];
+            System.out.println("Material " + i + ": " + material.name + " (looking for: " + material.name.toLowerCase() + ".png/.jpg)");
+        }
+        if (modelData.materials.length > 10) {
+            System.out.println("... and " + (modelData.materials.length - 10) + " more materials");
+        }
+        System.out.println("==================================================");
+        
+        int loadedCount = 0;
+        int fallbackCount = 0;
         
         for (int i = 0; i < modelData.materials.length; i++) {
             GLBMaterial material = modelData.materials[i];
+            int textureId = -1;
             
-            if (material.diffuseTexture != null) {
-                // Try to load external texture file from house subfolder based on material name
-                String texturePath = "textures/house/" + material.name.toLowerCase() + ".png";
-                int textureId = TextureLoader.loadTexture(texturePath);
-                
-                if (textureId == -1) {
-                    // Try .jpg extension
-                    texturePath = "textures/house/" + material.name.toLowerCase() + ".jpg";
-                    textureId = TextureLoader.loadTexture(texturePath);
-                }
-                
-                textureIds[i] = textureId;
-                if (textureId != -1) {
-                    System.out.println("Material " + i + " (" + material.name + ") loaded external texture: " + texturePath);
-                } else {
-                    System.out.println("Material " + i + " (" + material.name + ") - no matching texture file found");
+            // Skip embedded textures - only use external textures
+            String texturePath = "textures/house/" + material.name.toLowerCase() + ".png";
+            textureId = TextureLoader.loadTexture(texturePath);
+            if (textureId == -1) {
+                // Try .jpg extension
+                texturePath = "textures/house/" + material.name.toLowerCase() + ".jpg";
+                textureId = TextureLoader.loadTexture(texturePath);
+            }
+            if (textureId != -1) {
+                loadedCount++;
+                if (i < 10) { // Only log first 10 successful loads
+                    System.out.println("Material " + i + " (" + material.name + ") loaded external texture: " + texturePath + " (ID: " + textureId + ")");
                 }
             } else {
-                textureIds[i] = -1;
+                if (i < 10) { // Only log first 10 missing textures
+                    System.out.println("Material " + i + " (" + material.name + ") - no external texture found, using fallback");
+                }
             }
+            
+            // Always use fallback if no texture found
+            if (textureId == -1) {
+                if (fallbackTextureId != -1) {
+                    textureId = fallbackTextureId;
+                    fallbackCount++;
+                    if (i < 10) { // Only log first 10 fallback uses
+                        System.out.println("  -> Using fallback texture (ID: " + fallbackTextureId + ") for material " + i);
+                    }
+                } else {
+                    System.err.println("  -> No fallback texture available for material " + i);
+                }
+            }
+            textureIds[i] = textureId;
         }
+        
+        // Summary of texture loading
+        System.out.println("=== Texture Loading Summary ===");
+        System.out.println("Total materials: " + textureIds.length);
+        System.out.println("External textures loaded: " + loadedCount);
+        System.out.println("Using fallback texture: " + fallbackCount);
+        System.out.println("===============================");
     }
     
     private int createTextureFromBytes(byte[] imageData) {
@@ -117,6 +159,23 @@ public class GLBModelRenderer {
         }
     }
     
+    private void createWhiteTexture() {
+        if (whiteTextureId != -1) return;
+        // Create a 1x1 white pixel
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocateDirect(4);
+        buffer.put((byte)255).put((byte)255).put((byte)255).put((byte)255);
+        buffer.flip();
+        whiteTextureId = glGenTextures();
+        glBindTexture(GL_TEXTURE_2D, whiteTextureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        System.out.println("Created 1x1 white texture for debug mode, ID: " + whiteTextureId);
+    }
+    
     public void render() {
         if (modelData == null) {
             // Render fallback cube if GLB failed to load
@@ -151,26 +210,38 @@ public class GLBModelRenderer {
     }
     
     private void renderMeshes() {
-        for (GLBMesh mesh : modelData.meshes) {
-            // Set up material/texture for this mesh
-            if (mesh.materialIndex >= 0 && mesh.materialIndex < textureIds.length) {
-                int textureId = textureIds[mesh.materialIndex];
-                if (textureId != -1) {
-                    glEnable(GL_TEXTURE_2D);
-                    glBindTexture(GL_TEXTURE_2D, textureId);
-                }
+        createWhiteTexture();
+        for (int meshIndex = 0; meshIndex < modelData.meshes.length; meshIndex++) {
+            GLBMesh mesh = modelData.meshes[meshIndex];
+            
+            // Validate mesh indices
+            if (mesh.startIndex < 0 || mesh.indexCount <= 0 || 
+                mesh.startIndex + mesh.indexCount > modelData.indices.length) {
+                System.err.println("Invalid mesh " + meshIndex + ": startIndex=" + mesh.startIndex + 
+                                 ", indexCount=" + mesh.indexCount + ", total indices=" + modelData.indices.length);
+                continue;
             }
+            
+            // Force use of white texture for all meshes
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, whiteTextureId);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             
             // Render this mesh's triangles
             glBegin(GL_TRIANGLES);
             for (int i = mesh.startIndex; i < mesh.startIndex + mesh.indexCount; i += 3) {
                 if (i + 2 < modelData.indices.length) {
-                    renderTriangle(modelData.indices[i], modelData.indices[i + 1], modelData.indices[i + 2]);
+                    int idx1 = modelData.indices[i];
+                    int idx2 = modelData.indices[i + 1];
+                    int idx3 = modelData.indices[i + 2];
+                    renderTriangle(idx1, idx2, idx3);
                 }
             }
             glEnd();
             
-            // Disable texture for next mesh
             if (glIsEnabled(GL_TEXTURE_2D)) {
                 glDisable(GL_TEXTURE_2D);
             }
@@ -192,38 +263,46 @@ public class GLBModelRenderer {
     }
     
     private void renderTriangle(int index1, int index2, int index3) {
+        // Validate indices first
+        if (index1 < 0 || index2 < 0 || index3 < 0 || 
+            modelData.vertices == null || modelData.vertices.length == 0) {
+            return;
+        }
+        
+        int maxVertexIndex = (modelData.vertices.length / 3) - 1;
+        if (index1 > maxVertexIndex || index2 > maxVertexIndex || index3 > maxVertexIndex) {
+            return;
+        }
+        
         // Render first vertex
         if (modelData.texCoords != null && modelData.texCoords.length > index1 * 2 + 1) {
+            // Flip V coordinate for OpenGL
             glTexCoord2f(modelData.texCoords[index1 * 2], 1.0f - modelData.texCoords[index1 * 2 + 1]);
         }
         if (modelData.normals != null && modelData.normals.length > index1 * 3 + 2) {
             glNormal3f(modelData.normals[index1 * 3], modelData.normals[index1 * 3 + 1], modelData.normals[index1 * 3 + 2]);
         }
-        if (modelData.vertices != null && modelData.vertices.length > index1 * 3 + 2) {
-            glVertex3f(modelData.vertices[index1 * 3], modelData.vertices[index1 * 3 + 1], modelData.vertices[index1 * 3 + 2]);
-        }
+        glVertex3f(modelData.vertices[index1 * 3], modelData.vertices[index1 * 3 + 1], modelData.vertices[index1 * 3 + 2]);
         
         // Render second vertex
         if (modelData.texCoords != null && modelData.texCoords.length > index2 * 2 + 1) {
+            // Flip V coordinate for OpenGL
             glTexCoord2f(modelData.texCoords[index2 * 2], 1.0f - modelData.texCoords[index2 * 2 + 1]);
         }
         if (modelData.normals != null && modelData.normals.length > index2 * 3 + 2) {
             glNormal3f(modelData.normals[index2 * 3], modelData.normals[index2 * 3 + 1], modelData.normals[index2 * 3 + 2]);
         }
-        if (modelData.vertices != null && modelData.vertices.length > index2 * 3 + 2) {
-            glVertex3f(modelData.vertices[index2 * 3], modelData.vertices[index2 * 3 + 1], modelData.vertices[index2 * 3 + 2]);
-        }
+        glVertex3f(modelData.vertices[index2 * 3], modelData.vertices[index2 * 3 + 1], modelData.vertices[index2 * 3 + 2]);
         
         // Render third vertex
         if (modelData.texCoords != null && modelData.texCoords.length > index3 * 2 + 1) {
+            // Flip V coordinate for OpenGL
             glTexCoord2f(modelData.texCoords[index3 * 2], 1.0f - modelData.texCoords[index3 * 2 + 1]);
         }
         if (modelData.normals != null && modelData.normals.length > index3 * 3 + 2) {
             glNormal3f(modelData.normals[index3 * 3], modelData.normals[index3 * 3 + 1], modelData.normals[index3 * 3 + 2]);
         }
-        if (modelData.vertices != null && modelData.vertices.length > index3 * 3 + 2) {
-            glVertex3f(modelData.vertices[index3 * 3], modelData.vertices[index3 * 3 + 1], modelData.vertices[index3 * 3 + 2]);
-        }
+        glVertex3f(modelData.vertices[index3 * 3], modelData.vertices[index3 * 3 + 1], modelData.vertices[index3 * 3 + 2]);
     }
     
     private void setupRenderingStates() {

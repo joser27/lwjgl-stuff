@@ -85,7 +85,8 @@ public class GLBLoader {
             
             // Load with Assimp
             AIScene scene = aiImportFile(tempFile.getAbsolutePath(), 
-                aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals);
+                aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | 
+                aiProcess_JoinIdenticalVertices | aiProcess_PreTransformVertices);
             
             if (scene == null) {
                 System.err.println("Failed to load GLB with Assimp: " + aiGetErrorString());
@@ -137,8 +138,6 @@ public class GLBLoader {
         List<Integer> indicesList = new ArrayList<>();
         List<GLBMesh> meshList = new ArrayList<>();
         
-        int currentVertexOffset = 0;
-        
         for (int i = 0; i < numMeshes; i++) {
             AIMesh mesh = AIMesh.create(meshes.get(i));
             
@@ -172,7 +171,7 @@ public class GLBLoader {
                 }
             }
             
-            // Extract texture coordinates
+            // Extract texture coordinates (don't flip here, we'll handle it in renderer)
             AIVector3D.Buffer texCoords = mesh.mTextureCoords(0);
             if (texCoords != null) {
                 for (int v = 0; v < vertexCount; v++) {
@@ -200,7 +199,8 @@ public class GLBLoader {
                 // Only process triangles
                 if (numIndices == 3) {
                     for (int idx = 0; idx < numIndices; idx++) {
-                        indicesList.add(currentVertexOffset + indices.get(idx));
+                        // Use absolute indices, not relative to current mesh
+                        indicesList.add(indices.get(idx));
                     }
                 }
             }
@@ -209,8 +209,6 @@ public class GLBLoader {
             int indexCount = indicesList.size() - startIndex;
             GLBMesh glbMesh = new GLBMesh("Mesh_" + i, mesh.mMaterialIndex(), startIndex, indexCount);
             meshList.add(glbMesh);
-            
-            currentVertexOffset += vertexCount;
         }
         
         // Convert lists to arrays

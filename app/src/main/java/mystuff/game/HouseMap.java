@@ -5,7 +5,7 @@ import mystuff.utils.GLBModelRenderer;
 import org.lwjgl.opengl.GL11;
 
 public class HouseMap extends GameObject {
-    private static final float HOUSE_SCALE = 1.0f; // Scale of the house model
+    private static final float HOUSE_SCALE = 0.1f; // Reduced scale to make house smaller
     private static GLBModelRenderer houseModel = null;
     private static boolean triedLoad = false;
     private static String HOUSE_GLB = "models/Quequis_House.glb";
@@ -19,13 +19,18 @@ public class HouseMap extends GameObject {
             houseModel = new GLBModelRenderer(HOUSE_GLB);
             triedLoad = true;
             if (houseModel.isLoaded()) {
-                System.out.println("House OBJ loaded! Vertices: " + houseModel.getVertexCount());
+                System.out.println("House GLB loaded! Vertices: " + houseModel.getVertexCount());
                 float[] bounds = houseModel.getModelBounds();
                 if (bounds != null) {
                     System.out.printf("House bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
                         bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
                     System.out.printf("House size: %.3f x %.3f x %.3f%n",
                         bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4]);
+                    
+                    // Calculate proper Y offset to place house on ground
+                    float modelHeight = bounds[3] - bounds[2];
+                    float yOffset = modelHeight * HOUSE_SCALE / 2.0f;
+                    System.out.printf("Model height: %.3f, Y offset needed: %.3f%n", modelHeight, yOffset);
                 }
             } else {
                 System.err.println("Failed to load house.glb: " + HOUSE_GLB);
@@ -41,10 +46,12 @@ public class HouseMap extends GameObject {
             // Position the house
             GL11.glTranslatef(getX(), getY(), getZ());
             
-            // You might need to adjust rotation based on how the model is oriented
-            // GL11.glRotatef(0.0f, 1.0f, 0.0f, 0.0f); // Adjust if needed
+            // Apply rotation to orient the house properly
+            GL11.glRotatef(0.0f, 1.0f, 0.0f, 0.0f); // No X rotation
+            GL11.glRotatef(0.0f, 0.0f, 1.0f, 0.0f); // No Y rotation  
+            GL11.glRotatef(0.0f, 0.0f, 0.0f, 1.0f); // No Z rotation
             
-            // Render the house model
+            // Render the house model with proper scaling
             houseModel.render(HOUSE_SCALE);
             
             GL11.glPopMatrix();

@@ -82,8 +82,8 @@ public class Game implements IGameLogic {
             entityManager.addEntity(beggar);
             
             // Create house on the map
-            float houseX = 100.0f;
-            float houseZ = 100.0f;
+            float houseX = 0.0f; // Center the house
+            float houseZ = 0.0f; // Center the house
             float houseY = groundLevel; // Use fixed ground level
             HouseMap house = new HouseMap(houseX, houseY, houseZ);
             System.out.println("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")");
