@@ -11,13 +11,58 @@ import java.util.List;
 
 public class GLBLoader {
     
-    // Use the same ModelData class as OBJLoader for consistency
+    // Enhanced ModelData class to support materials
     public static class ModelData {
         public float[] vertices;
         public float[] texCoords;
         public float[] normals;
         public int[] indices;
         public int vertexCount;
+        
+        // Material support
+        public MaterialInfo[] materials;
+        public MeshInfo[] meshes;
+    }
+    
+    public static class MaterialInfo {
+        public String name;
+        public String cleanName; // Cleaned version for texture matching
+        
+        public MaterialInfo(String name) {
+            this.name = name;
+            this.cleanName = cleanMaterialName(name);
+        }
+        
+        // Clean material name for better texture matching
+        private static String cleanMaterialName(String name) {
+            if (name == null) return "default";
+            
+            // Remove common prefixes/suffixes and normalize
+            String cleaned = name.toLowerCase()
+                .replaceAll("^material_?", "")
+                .replaceAll("^mat_?", "")
+                .replaceAll("^m_", "")
+                .replaceAll("_?\\d+$", "") // Remove trailing numbers
+                .replaceAll("[^a-z0-9_]", "_") // Replace special chars with underscore
+                .replaceAll("_+", "_") // Collapse multiple underscores
+                .replaceAll("^_|_$", ""); // Remove leading/trailing underscores
+            
+            return cleaned.isEmpty() ? "default" : cleaned;
+        }
+    }
+    
+    public static class MeshInfo {
+        public String name;
+        public int materialIndex;
+        public int startIndex;
+        public int indexCount;
+        
+        public MeshInfo(String name, int materialIndex, int startIndex, int indexCount) {
+            this.name = name;
+            this.materialIndex = materialIndex;
+            this.startIndex = startIndex;
+            this.indexCount = indexCount;
+        }
     }
     
     public static ModelData loadGLBModel(String filePath) {
@@ -55,7 +100,7 @@ public class GLBLoader {
                 return null;
             }
             
-            // Convert Assimp scene to simple ModelData (like OBJLoader)
+            // Convert Assimp scene to enhanced ModelData
             ModelData modelData = convertAssimpScene(scene);
             
             // Cleanup
@@ -66,6 +111,17 @@ public class GLBLoader {
                 System.out.println("GLB model loaded successfully: " + filePath);
                 System.out.println("  Vertices: " + modelData.vertices.length / 3);
                 System.out.println("  Faces: " + modelData.indices.length / 3);
+                System.out.println("  Materials: " + (modelData.materials != null ? modelData.materials.length : 0));
+                System.out.println("  Meshes: " + (modelData.meshes != null ? modelData.meshes.length : 0));
+                
+                // Print material names for debugging
+                if (modelData.materials != null) {
+                    System.out.println("  Material names:");
+                    for (int i = 0; i < modelData.materials.length; i++) {
+                        MaterialInfo mat = modelData.materials[i];
+                        System.out.println("    " + i + ": \"" + mat.name + "\" -> \"" + mat.cleanName + "\"");
+                    }
+                }
             }
             
             return modelData;
@@ -89,13 +145,17 @@ public class GLBLoader {
             return null;
         }
         
-        // Process all meshes and combine them into one ModelData (like OBJ does)
+        // Extract materials first
+        MaterialInfo[] materials = extractMaterials(scene);
+        
+        // Process all meshes and combine them into one ModelData
         PointerBuffer meshes = scene.mMeshes();
         
         List<Float> verticesList = new ArrayList<>();
         List<Float> normalsList = new ArrayList<>(); 
         List<Float> texCoordsList = new ArrayList<>();
         List<Integer> indicesList = new ArrayList<>();
+        List<MeshInfo> meshList = new ArrayList<>();
         
         int vertexOffset = 0;
         
@@ -103,6 +163,7 @@ public class GLBLoader {
             AIMesh mesh = AIMesh.create(meshes.get(i));
             
             int vertexCount = mesh.mNumVertices();
+            int startIndex = indicesList.size();
             
             // Extract vertices
             AIVector3D.Buffer vertices = mesh.mVertices();
@@ -165,18 +226,59 @@ public class GLBLoader {
                 }
             }
             
+            // Create mesh info
+            int indexCount = indicesList.size() - startIndex;
+            MeshInfo meshInfo = new MeshInfo("Mesh_" + i, mesh.mMaterialIndex(), startIndex, indexCount);
+            meshList.add(meshInfo);
+            
             vertexOffset += vertexCount;
         }
         
-        // Convert lists to arrays (same as OBJLoader)
+        // Convert lists to arrays
         ModelData modelData = new ModelData();
         modelData.vertices = listToArray(verticesList);
         modelData.normals = listToArray(normalsList);
         modelData.texCoords = listToArray(texCoordsList);
         modelData.indices = listToIntArray(indicesList);
         modelData.vertexCount = modelData.indices.length;
+        modelData.materials = materials;
+        modelData.meshes = meshList.toArray(new MeshInfo[0]);
         
         return modelData;
+    }
+    
+    private static MaterialInfo[] extractMaterials(AIScene scene) {
+        int numMaterials = scene.mNumMaterials();
+        if (numMaterials == 0) {
+            System.out.println("No materials found in GLB file, creating default material");
+            return new MaterialInfo[] { new MaterialInfo("default") };
+        }
+        
+        System.out.println("Extracting " + numMaterials + " materials from GLB file");
+        
+        PointerBuffer materialPtrs = scene.mMaterials();
+        MaterialInfo[] materials = new MaterialInfo[numMaterials];
+        
+        for (int i = 0; i < numMaterials; i++) {
+            AIMaterial aiMaterial = AIMaterial.create(materialPtrs.get(i));
+            
+            // Get material name
+            AIString nameString = AIString.calloc();
+            String materialName = "Material_" + i;
+            
+            if (aiGetMaterialString(aiMaterial, AI_MATKEY_NAME, 0, 0, nameString) == aiReturn_SUCCESS) {
+                String extractedName = nameString.dataString();
+                if (extractedName != null && !extractedName.trim().isEmpty()) {
+                    materialName = extractedName.trim();
+                }
+            }
+            nameString.free();
+            
+            materials[i] = new MaterialInfo(materialName);
+            System.out.println("  Material " + i + ": \"" + materialName + "\" -> \"" + materials[i].cleanName + "\"");
+        }
+        
+        return materials;
     }
     
     private static float[] listToArray(List<Float> list) {

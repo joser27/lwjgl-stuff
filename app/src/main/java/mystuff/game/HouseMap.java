@@ -14,26 +14,21 @@ public class HouseMap extends GameObject {
     public HouseMap(float x, float y, float z) {
         super(x, y, z);
         if (!triedLoad) {
-            // Try to load the GLB house model with texture
-            // Use missing_texture.jpg for testing texture support
+            // Load the GLB house model with automatic texture matching
+            // The new system will automatically match materials to textures in textures/house/
+            // missing_texture.jpg will be used as fallback for unmatched materials
             houseModel = new GLBModelRenderer(HOUSE_GLB, "textures/missing_texture.jpg");
             triedLoad = true;
             if (houseModel.isLoaded()) {
-                System.out.println("House GLB loaded! Vertices: " + houseModel.getVertexCount());
+                System.out.println("House GLB loaded with automatic texture matching!");
+                System.out.println("  Vertices: " + houseModel.getVertexCount());
                 float[] bounds = houseModel.getModelBounds();
                 if (bounds != null) {
-                    System.out.printf("House bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
+                    System.out.printf("  House bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
                         bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
-                    System.out.printf("House size: %.3f x %.3f x %.3f%n",
-                        bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4]);
-                    
-                    // Calculate proper Y offset to place house on ground
-                    float modelHeight = bounds[3] - bounds[2];
-                    float yOffset = modelHeight * HOUSE_SCALE / 2.0f;
-                    System.out.printf("Model height: %.3f, Y offset needed: %.3f%n", modelHeight, yOffset);
                 }
             } else {
-                System.err.println("Failed to load house.glb: " + HOUSE_GLB);
+                System.err.println("Failed to load house GLB model");
             }
         }
     }

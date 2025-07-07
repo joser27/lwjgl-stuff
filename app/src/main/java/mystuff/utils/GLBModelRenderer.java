@@ -1,31 +1,85 @@
 package mystuff.utils;
 
 import mystuff.utils.GLBLoader.ModelData;
+import mystuff.utils.GLBLoader.MaterialInfo;
+import mystuff.utils.GLBLoader.MeshInfo;
 import static org.lwjgl.opengl.GL11.*;
 
 public class GLBModelRenderer {
     
     private ModelData modelData;
-    private int textureId = -1;
+    private int[] textureIds; // Array of texture IDs for each material
+    private int fallbackTextureId = -1;
     
     public GLBModelRenderer(String glbFilePath) {
         this.modelData = GLBLoader.loadGLBModel(glbFilePath);
         if (modelData == null) {
             System.err.println("Failed to load GLB model: " + glbFilePath);
+        } else {
+            // Load textures automatically using smart matching
+            loadTexturesFromMaterials();
         }
     }
     
-    public GLBModelRenderer(String glbFilePath, String texturePath) {
+    public GLBModelRenderer(String glbFilePath, String fallbackTexturePath) {
         this.modelData = GLBLoader.loadGLBModel(glbFilePath);
         if (modelData == null) {
             System.err.println("Failed to load GLB model: " + glbFilePath);
         } else {
-            // Load texture if provided
-            textureId = TextureLoader.loadTexture(texturePath);
-            if (textureId == -1) {
-                System.err.println("Failed to load texture: " + texturePath);
+            // Load fallback texture first
+            fallbackTextureId = TextureLoader.loadTexture(fallbackTexturePath);
+            if (fallbackTextureId == -1) {
+                System.err.println("Failed to load fallback texture: " + fallbackTexturePath);
+            }
+            
+            // Load textures automatically using smart matching
+            loadTexturesFromMaterials();
+        }
+    }
+    
+    private void loadTexturesFromMaterials() {
+        if (modelData.materials == null || modelData.materials.length == 0) {
+            System.out.println("No materials found, using fallback texture for entire model");
+            textureIds = new int[] { fallbackTextureId };
+            return;
+        }
+        
+        System.out.println("Loading textures for " + modelData.materials.length + " materials...");
+        
+        // Initialize TextureMatcher
+        TextureMatcher.initializeTextureCache();
+        
+        textureIds = new int[modelData.materials.length];
+        int successCount = 0;
+        int fallbackCount = 0;
+        
+        for (int i = 0; i < modelData.materials.length; i++) {
+            MaterialInfo material = modelData.materials[i];
+            
+            // Find best matching texture
+            String texturePath = TextureMatcher.findBestTexture(material.cleanName);
+            
+            // Load the texture
+            int textureId = TextureLoader.loadTexture(texturePath);
+            if (textureId != -1) {
+                textureIds[i] = textureId;
+                if (!texturePath.equals("textures/missing_texture.jpg")) {
+                    successCount++;
+                } else {
+                    fallbackCount++;
+                }
+            } else {
+                // Use fallback texture if available
+                textureIds[i] = fallbackTextureId;
+                fallbackCount++;
+                System.err.println("  Failed to load texture for material " + i + ": " + material.name);
             }
         }
+        
+        System.out.println("Texture loading complete:");
+        System.out.println("  Successful matches: " + successCount);
+        System.out.println("  Fallback textures: " + fallbackCount);
+        System.out.println("  Total materials: " + modelData.materials.length);
     }
     
     public void render() {
@@ -39,12 +93,6 @@ public class GLBModelRenderer {
         // Setup lighting
         setupLighting();
         
-        // Enable texturing if available
-        if (textureId != -1) {
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, textureId);
-        }
-        
         // Set color to white for proper texture rendering
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
@@ -53,14 +101,86 @@ public class GLBModelRenderer {
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
         
-        glBegin(GL_TRIANGLES);
-        for (int i = 0; i < modelData.indices.length; i += 3) {
-            renderTriangle(modelData.indices[i], modelData.indices[i + 1], modelData.indices[i + 2]);
+        // Render by meshes to support multiple textures
+        if (modelData.meshes != null && modelData.meshes.length > 0) {
+            renderMeshes();
+        } else {
+            // Fallback: render all triangles with first texture
+            renderAllTriangles();
         }
-        glEnd();
         
         // Cleanup OpenGL states
         cleanupRenderingStates();
+    }
+    
+    private void renderMeshes() {
+        for (int meshIndex = 0; meshIndex < modelData.meshes.length; meshIndex++) {
+            MeshInfo mesh = modelData.meshes[meshIndex];
+            
+            // Validate mesh data
+            if (mesh.startIndex < 0 || mesh.indexCount <= 0 || 
+                mesh.startIndex + mesh.indexCount > modelData.indices.length) {
+                System.err.println("Invalid mesh " + meshIndex + ": startIndex=" + mesh.startIndex + 
+                                 ", indexCount=" + mesh.indexCount + ", total indices=" + modelData.indices.length);
+                continue;
+            }
+            
+            // Get texture for this mesh's material
+            int textureId = getTextureForMaterial(mesh.materialIndex);
+            
+            // Enable texture if available
+            if (textureId != -1) {
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, textureId);
+            }
+            
+            // Render this mesh's triangles
+            glBegin(GL_TRIANGLES);
+            for (int i = mesh.startIndex; i < mesh.startIndex + mesh.indexCount; i += 3) {
+                if (i + 2 < modelData.indices.length) {
+                    int idx1 = modelData.indices[i];
+                    int idx2 = modelData.indices[i + 1];
+                    int idx3 = modelData.indices[i + 2];
+                    renderTriangle(idx1, idx2, idx3, textureId != -1);
+                }
+            }
+            glEnd();
+            
+            // Disable texture
+            if (textureId != -1) {
+                glDisable(GL_TEXTURE_2D);
+            }
+        }
+    }
+    
+    private void renderAllTriangles() {
+        // Enable first texture if available
+        int textureId = (textureIds != null && textureIds.length > 0) ? textureIds[0] : -1;
+        if (textureId != -1) {
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, textureId);
+        }
+        
+        glBegin(GL_TRIANGLES);
+        for (int i = 0; i < modelData.indices.length; i += 3) {
+            if (i + 2 < modelData.indices.length) {
+                renderTriangle(modelData.indices[i], modelData.indices[i + 1], modelData.indices[i + 2], textureId != -1);
+            }
+        }
+        glEnd();
+        
+        if (textureId != -1) {
+            glDisable(GL_TEXTURE_2D);
+        }
+    }
+    
+    private int getTextureForMaterial(int materialIndex) {
+        if (textureIds == null || materialIndex < 0 || materialIndex >= textureIds.length) {
+            return fallbackTextureId;
+        }
+        
+        int textureId = textureIds[materialIndex];
+        return textureId != -1 ? textureId : fallbackTextureId;
     }
     
     private void setupRenderingStates() {
@@ -110,14 +230,10 @@ public class GLBModelRenderer {
         glDisable(GL_POLYGON_OFFSET_FILL);
     }
     
-    private void renderTriangle(int index1, int index2, int index3) {
+    private void renderTriangle(int index1, int index2, int index3, boolean useTexture) {
         // Render first vertex
-        if (textureId != -1) {
-            if (modelData.texCoords.length > index1 * 2 + 1) {
-                glTexCoord2f(modelData.texCoords[index1 * 2], 1.0f - modelData.texCoords[index1 * 2 + 1]);
-            } else {
-                glTexCoord2f(0.0f, 0.0f);
-            }
+        if (useTexture && modelData.texCoords.length > index1 * 2 + 1) {
+            glTexCoord2f(modelData.texCoords[index1 * 2], 1.0f - modelData.texCoords[index1 * 2 + 1]);
         }
         if (modelData.normals.length > index1 * 3 + 2) {
             glNormal3f(modelData.normals[index1 * 3], modelData.normals[index1 * 3 + 1], modelData.normals[index1 * 3 + 2]);
@@ -125,12 +241,8 @@ public class GLBModelRenderer {
         glVertex3f(modelData.vertices[index1 * 3], modelData.vertices[index1 * 3 + 1], modelData.vertices[index1 * 3 + 2]);
         
         // Render second vertex
-        if (textureId != -1) {
-            if (modelData.texCoords.length > index2 * 2 + 1) {
-                glTexCoord2f(modelData.texCoords[index2 * 2], 1.0f - modelData.texCoords[index2 * 2 + 1]);
-            } else {
-                glTexCoord2f(1.0f, 0.0f);
-            }
+        if (useTexture && modelData.texCoords.length > index2 * 2 + 1) {
+            glTexCoord2f(modelData.texCoords[index2 * 2], 1.0f - modelData.texCoords[index2 * 2 + 1]);
         }
         if (modelData.normals.length > index2 * 3 + 2) {
             glNormal3f(modelData.normals[index2 * 3], modelData.normals[index2 * 3 + 1], modelData.normals[index2 * 3 + 2]);
@@ -138,12 +250,8 @@ public class GLBModelRenderer {
         glVertex3f(modelData.vertices[index2 * 3], modelData.vertices[index2 * 3 + 1], modelData.vertices[index2 * 3 + 2]);
         
         // Render third vertex
-        if (textureId != -1) {
-            if (modelData.texCoords.length > index3 * 2 + 1) {
-                glTexCoord2f(modelData.texCoords[index3 * 2], 1.0f - modelData.texCoords[index3 * 2 + 1]);
-            } else {
-                glTexCoord2f(0.5f, 1.0f);
-            }
+        if (useTexture && modelData.texCoords.length > index3 * 2 + 1) {
+            glTexCoord2f(modelData.texCoords[index3 * 2], 1.0f - modelData.texCoords[index3 * 2 + 1]);
         }
         if (modelData.normals.length > index3 * 3 + 2) {
             glNormal3f(modelData.normals[index3 * 3], modelData.normals[index3 * 3 + 1], modelData.normals[index3 * 3 + 2]);
@@ -199,9 +307,16 @@ public class GLBModelRenderer {
     }
     
     public void cleanup() {
-        // Clean up texture if needed
-        if (textureId != -1) {
-            glDeleteTextures(textureId);
+        // Clean up all textures
+        if (textureIds != null) {
+            for (int textureId : textureIds) {
+                if (textureId != -1) {
+                    glDeleteTextures(textureId);
+                }
+            }
+        }
+        if (fallbackTextureId != -1) {
+            glDeleteTextures(fallbackTextureId);
         }
     }
 } 
