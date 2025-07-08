@@ -10,70 +10,61 @@ import mystuff.utils.Debug;
 import mystuff.utils.KeyboardManager;
 
 public class Player extends GameObject {
+    // Movement speeds
     private float speed = 5.0f;
-    private float sprintSpeed = 16.0f; // Speed when sprinting
-    private float noClipSpeed = 50.0f; // Much faster speed for no-clip mode
-    private float noClipSprintSpeed = 150.0f; // Very fast sprint speed for no-clip mode
+    private float sprintSpeed = 16.0f;
+    private float noClipSpeed = 10.0f;
+    private float noClipSprintSpeed = 50.0f;
     private boolean isSprinting = false;
-    private float size = 10.0f;
-    private Camera camera;  // Reference to the camera
+    
+    // Camera and input
+    private Camera camera;
     private float mouseSensitivity = 0.2f;
     private boolean firstMouse = true;
     private float lastX = 400, lastY = 300;
-    private float velocity = 0.0f;
-    private float gravity = -25.0f; // Increased gravity for better feel
-    // private World world;  // Reference to the world - COMMENTED OUT
-    private static final float GROUND_LEVEL = 17.0f; // Fixed ground level instead of terrain
-    private boolean isOnGround = false;
-    private float jumpForce = 12.0f;  // Increased jump force for better feel
-    private boolean debugMode = true;  // Add debug mode
-    private boolean wasSpacePressed = false;  // Track space key state
-    private static final float GROUND_CHECK_DISTANCE = 0.1f;  // Increased for better ground detection
-    private static final float MAX_VELOCITY = 30.0f;  // Increased max velocity
     
-    // Player bounding box for entity collision
+    // Physics
+    private float velocity = 0.0f;
+    private float gravity = -25.0f;
+    private static final float GROUND_LEVEL = 17.0f;
+    private boolean isOnGround = false;
+    private float jumpForce = 12.0f;
+    private boolean wasSpacePressed = false;
+    private static final float MAX_VELOCITY = 30.0f;
+    
+    // Collision
     private BoundingBox boundingBox;
     
-    // No-clip mode for camera
+    // No-clip mode
     private boolean noClipMode = false;
-    private boolean wasNoClipMode = false; // Track previous state
-    private float cameraSpeed = 0.5f;  // Adjusted for delta-time independent movement in no-clip mode
-    
-    // Store last position before entering no-clip mode
+    private boolean wasNoClipMode = false;
     private float lastNormalX, lastNormalY, lastNormalZ;
-    // Separate camera position for no-clip mode (spirit/ghost view)
     private float noClipCameraX, noClipCameraY, noClipCameraZ;
 
+    // Rendering
     private static int playerTexture = -1;
-    private static final float TEXTURE_SCALE = 1280.0f;  // Your texture width
-
     private PlayerRenderer renderer;
 
-    public static final float PLAYER_WIDTH = 1.0f;  // Slightly narrower than rendered size
-    public static final float PLAYER_HEIGHT = 2.0f; // Player is taller than wide (2x)
-    public static final float PLAYER_DEPTH = 1.0f;  // Same as width
-    
-    // Camera height offset - tweak this to adjust how high the camera appears above the player
-    private static final float CAMERA_HEIGHT_OFFSET = 0.95f; // 0.85f was too low, try 0.95f
+    // Player dimensions
+    public static final float PLAYER_WIDTH = 1.0f;
+    public static final float PLAYER_HEIGHT = 2.0f;
+    public static final float PLAYER_DEPTH = 1.0f;
+    private static final float CAMERA_HEIGHT_OFFSET = 0.95f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
-        // this.world = world; // Commented out - no terrain
-        // Set initial camera position to player position at eye level (slightly lower than before)
-        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z); // Eye level at approximately head height
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
         
-        // Create player's bounding box for entity collision
         updateBoundingBox();
 
-        // Load player texture if not already loaded
+        // Load player texture
         if (playerTexture == -1) {
             playerTexture = TextureLoader.loadTexture("textures/Wolf_Body.jpg");
             if (playerTexture == -1) {
                 System.err.println("Failed to load player texture!");
             } else {
                 System.out.println("Successfully loaded player texture with ID: " + playerTexture);
-                // Set texture parameters for smoother rendering
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, playerTexture);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
@@ -83,27 +74,21 @@ public class Player extends GameObject {
             }
         }
 
-        // Initialize renderer
         this.renderer = new PlayerRenderer();
         this.renderer.init();
     }
 
     @Override
     public void update(Window window, float deltaTime) {
-        // Add debug mode toggle with F3
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
             Debug.toggleDebugMode();
             Debug.toggleBoundingBoxes();
             Debug.togglePlayerInfo();
         }
 
-        // Handle keyboard input for movement
         handleKeyboardInput(window, deltaTime);
-
-        // Update bounding box position
         updateBoundingBox();
         
-        // Heightmap collision and movement
         if (!noClipMode) {
             updateHeightmapCollision(deltaTime);
         }
@@ -116,10 +101,6 @@ public class Player extends GameObject {
             } else {
                 System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b%n", 
                     x, y, z, velocity, isOnGround);
-                // Show world border info only in normal mode - COMMENTED OUT
-                // float[] bounds = world.getWorldBorderBounds();
-                // System.out.printf("World Border: X[%.1f, %.1f] Z[%.1f, %.1f]%n", 
-                //     bounds[0], bounds[1], bounds[2], bounds[3]);
             }
         }
     }
@@ -134,9 +115,6 @@ public class Player extends GameObject {
         );
     }
     
-    /**
-     * Handle keyboard input for movement
-     */
     private void handleKeyboardInput(Window window, float deltaTime) {
         float currentSpeed = getCurrentSpeed();
         
@@ -157,116 +135,147 @@ public class Player extends GameObject {
         }
         wasSpacePressed = KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE);
         
-        // Handle movement based on camera direction
-        float moveX = 0, moveZ = 0;
+        // Handle movement
+        float moveX = 0, moveZ = 0, moveY = 0;
         
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_W)) {
-            moveZ -= 1; // Forward (negative Z in OpenGL)
+            if (noClipMode) {
+                moveZ = 1;
+            } else {
+                moveZ -= 1;
+            }
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_S)) {
-            moveZ += 1; // Backward (positive Z in OpenGL)
+            if (!noClipMode) {
+                moveZ += 1;
+            }
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_A)) {
-            moveX -= 1; // Left (negative X)
+            if (!noClipMode) {
+                moveX -= 1;
+            }
         }
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_D)) {
-            moveX += 1; // Right (positive X)
+            if (!noClipMode) {
+                moveX += 1;
+            }
         }
         
-        // Handle vertical movement in no-clip mode
-        float moveY = 0;
+        // Vertical movement in no-clip mode
         if (noClipMode) {
             if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE)) {
-                moveY += 1; // Fly up
+                moveY += 1;
             }
-            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_SHIFT)) {
-                moveY -= 1; // Fly down
+            if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_LEFT_CONTROL)) {
+                moveY -= 1;
             }
         }
         
-        // Normalize movement vector (only horizontal movement)
+        // Apply movement
+        if (noClipMode) {
+            applyNoClipMovement(moveX, moveY, moveZ, currentSpeed, deltaTime);
+        } else {
+            applyNormalMovement(moveX, moveZ, currentSpeed, deltaTime);
+        }
+    }
+    
+    /**
+     * Apply 3D movement in no-clip mode based on camera orientation
+     */
+    private void applyNoClipMovement(float moveX, float moveY, float moveZ, float speed, float deltaTime) {
+        // Get camera orientation
+        float yaw = camera.getYaw();
+        float pitch = camera.getPitch();
+        
+        // Convert to radians - invert yaw to fix direction
+        float yawRad = (float) Math.toRadians(-yaw);
+        float pitchRad = (float) Math.toRadians(pitch);
+        
+        // Calculate forward vector (where camera is looking)
+        float cosYaw = (float) Math.cos(yawRad);
+        float sinYaw = (float) Math.sin(yawRad);
+        float cosPitch = (float) Math.cos(pitchRad);
+        float sinPitch = (float) Math.sin(pitchRad);
+        
+        // Forward vector - this is the direction the camera faces
+        float forwardX = -sinYaw * cosPitch;
+        float forwardY = -sinPitch;
+        float forwardZ = -cosYaw * cosPitch;
+        
+        // Calculate movement based on input
+        float finalMoveX = 0;
+        float finalMoveY = 0;
+        float finalMoveZ = 0;
+        
+        // W key moves in camera direction
+        if (moveZ > 0) {
+            finalMoveX = forwardX * speed * deltaTime;
+            finalMoveY = forwardY * speed * deltaTime;
+            finalMoveZ = forwardZ * speed * deltaTime;
+        }
+        
+        // Space/Shift for vertical movement
+        if (moveY != 0) {
+            finalMoveY += moveY * speed * deltaTime;
+        }
+        
+        // Apply movement to no-clip camera position
+        noClipCameraX += finalMoveX;
+        noClipCameraY += finalMoveY;
+        noClipCameraZ += finalMoveZ;
+        
+        // Update camera position
+        camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
+    }
+    
+    private void applyNormalMovement(float moveX, float moveZ, float speed, float deltaTime) {
         if (moveX != 0 || moveZ != 0) {
             float length = (float) Math.sqrt(moveX * moveX + moveZ * moveZ);
             moveX /= length;
             moveZ /= length;
         }
         
-        // Apply movement based on camera direction
         float yaw = camera.getYaw();
-        float yawRad = (float) Math.toRadians(-yaw); // Invert yaw for correct direction
+        float yawRad = (float) Math.toRadians(-yaw);
         
         float forwardX = (float) Math.sin(yawRad);
         float forwardZ = (float) Math.cos(yawRad);
         float rightX = (float) Math.sin(yawRad + Math.PI / 2);
         float rightZ = (float) Math.cos(yawRad + Math.PI / 2);
         
-        // Calculate final movement
-        float finalMoveX = (moveX * rightX + moveZ * forwardX) * currentSpeed * deltaTime;
-        float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * currentSpeed * deltaTime;
+        float finalMoveX = (moveX * rightX + moveZ * forwardX) * speed * deltaTime;
+        float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * speed * deltaTime;
         
-        // Apply movement based on mode
-        if (noClipMode) {
-            // In no-clip mode: move camera, not player
-            noClipCameraX += finalMoveX;
-            noClipCameraZ += finalMoveZ;
-            
-            // Apply vertical movement in no-clip mode
-            if (moveY != 0) {
-                noClipCameraY += moveY * currentSpeed * deltaTime;
-            }
-            
-            // Update camera position
-            camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
-        } else {
-            // In normal mode: move player
-            x += finalMoveX;
-            z += finalMoveZ;
-            
-            // Apply world border constraints - COMMENTED OUT (no world borders)
-            // float[] borderPos = world.applyWorldBorderForce(x, z);
-            // x = borderPos[0];
-            // z = borderPos[1];
-        }
+        x += finalMoveX;
+        z += finalMoveZ;
     }
     
-    /**
-     * Handle ground collision with fixed ground level (no terrain)
-     */
     private void updateHeightmapCollision(float deltaTime) {
-        // Skip physics in no-clip mode
         if (noClipMode) {
             return;
         }
         
-        // Use fixed ground height instead of terrain
         float groundHeight = GROUND_LEVEL;
         
-        // Debug output to see what's happening
         if (Debug.showPlayerInfo()) {
             System.out.printf("Player Y: %.2f, Ground Y: %.2f, Velocity: %.2f%n", y, groundHeight, velocity);
         }
         
-        // Apply gravity first
         velocity += gravity * deltaTime;
-        velocity = Math.max(velocity, -MAX_VELOCITY); // Limit fall speed
+        velocity = Math.max(velocity, -MAX_VELOCITY);
         
-        // Apply velocity to get new position
         float newY = y + velocity * deltaTime;
-        
-        // Check if player would hit the ground (compare feet position to ground)
         float feetY = newY - (PLAYER_HEIGHT * 0.5f);
+        
         if (feetY <= groundHeight) {
-            // Player hit the ground - position so feet touch ground
             y = groundHeight + (PLAYER_HEIGHT * 0.5f);
             velocity = 0;
             isOnGround = true;
         } else {
-            // Player is in the air
             y = newY;
             isOnGround = false;
         }
         
-        // Update camera position to follow player (only in normal mode)
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
@@ -312,20 +321,15 @@ public class Player extends GameObject {
         this.noClipMode = noClipMode;
     }
     
-    /**
-     * Toggle no-clip mode and handle camera position updates
-     */
     public void toggleNoClipMode() {
-        wasNoClipMode = noClipMode; // Store current state before changing
+        wasNoClipMode = noClipMode;
         noClipMode = !noClipMode;
         
         if (!wasNoClipMode && noClipMode) {
-            // Entering no-clip mode: store player position and set camera to spirit view
             lastNormalX = x;
             lastNormalY = y;
             lastNormalZ = z;
             
-            // Start camera at player's eye level
             noClipCameraX = x;
             noClipCameraY = y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET);
             noClipCameraZ = z;
@@ -333,7 +337,6 @@ public class Player extends GameObject {
             
             System.out.println("Entering SPIRIT MODE - Player body stays in place, camera can fly freely");
         } else if (wasNoClipMode && !noClipMode) {
-            // Exiting no-clip mode: return camera to player position
             camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
             System.out.println("Exiting SPIRIT MODE - Returning to normal gameplay");
         }
@@ -346,7 +349,7 @@ public class Player extends GameObject {
     }
     
     public float getCameraSpeed() {
-        return cameraSpeed;
+        return 0.5f;
     }
     
     public float getJumpForce() {
