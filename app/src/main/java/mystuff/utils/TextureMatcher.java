@@ -5,6 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.net.URI;
+import java.net.URL;
+import java.nio.file.*;
+import java.util.Collections;
+import java.util.stream.Stream;
 
 public class TextureMatcher {
     
@@ -24,75 +29,137 @@ public class TextureMatcher {
     public static void initializeTextureCache() {
         if (cacheInitialized) return;
         
-        System.out.println("Scanning textures in " + TEXTURE_FOLDER + "...");
-        
-        // List of known texture files from the house folder
-        // In a full implementation, this could be dynamically scanned
-        String[] knownTextures = {
-            "Wood.png", "Windows.png", "Wall_W.png", "Tile.jpg", "Table.png",
-            "Roof_tiles.jpg", "Road.jpg", "Plaster.png", "Plaster_01.png", "Plaster_02.png",
-            "Metal.jpg", "Metal_01.png", "Metal_02.jpg", "Metal_03.jpg", "MetalPlates.jpg",
-            "Marble.jpg", "Houses.png", "Houses_01.png", "Grass.png", "Ground_dirt.jpg",
-            "brick_wall.png", "brick_stone.jpg", "brick_modern.jpg", "Office_Ceiling.jpg",
-            "Washbasin_M.png", "Toilet.png", "Shelf_B.png", "Shelf_FR.png", "Shelf_FR_I.png",
-            "Refrigerator.png", "Refrigerator_01.png", "Refrijerator_M.png", "Oven.png",
-            "Light.png", "Light_Emissor.png", "Grill.png", "Ventilation.png", "Showcase.png",
-            "Soda_fountain.001.png", "Phone.png", "Paintings.png", "Napkinholder.png",
-            "Knife.png", "cardboard_boxes.png", "Waffle_maker.png", "plants_flowers.png",
-            "cactus.png", "Plants_01.png", "Plants_02.png", "extinguisher.png"
-        };
+        System.out.println("Dynamically scanning texture folders...");
         
         // First, scan for extracted textures (these get priority)
         System.out.println("Scanning for extracted textures in " + EXTRACTED_FOLDER + "...");
-        scanExtractedTextures();
+        scanTexturesInFolder(EXTRACTED_FOLDER);
         
         // Then scan house folder for additional textures
-        for (String texture : knownTextures) {
-            if (textureExists(TEXTURE_FOLDER + texture)) {
-                String cleanName = cleanTextureName(texture);
-                // Only add if not already found in extracted folder
-                if (!textureCache.containsKey(cleanName)) {
-                    textureCache.put(cleanName, TEXTURE_FOLDER + texture);
-                    System.out.println("  Found house texture: \"" + texture + "\" -> \"" + cleanName + "\"");
-                }
-            }
-        }
+        System.out.println("Scanning for house textures in " + TEXTURE_FOLDER + "...");
+        scanTexturesInFolder(TEXTURE_FOLDER);
         
         System.out.println("Texture cache initialized with " + textureCache.size() + " textures");
         cacheInitialized = true;
     }
     
     /**
-     * Scan the extracted textures folder for any GLB-extracted textures
+     * Dynamically scan a folder for texture files
      */
-    private static void scanExtractedTextures() {
-        // For now, we'll use a simple approach since Java doesn't have great built-in
-        // directory scanning in the classpath. In a full implementation, you might
-        // want to use a more sophisticated approach or pre-generate a list.
+    private static void scanTexturesInFolder(String folderPath) {
+        try {
+            // Get the resource URL for the folder
+            URL resourceUrl = TextureMatcher.class.getClassLoader().getResource(folderPath);
+            if (resourceUrl == null) {
+                System.out.println("  Folder not found: " + folderPath);
+                return;
+            }
+            
+            URI uri = resourceUrl.toURI();
+            Path folderPath_nio;
+            FileSystem fileSystem = null;
+            
+            // Handle both file system and jar file scenarios
+            if (uri.getScheme().equals("jar")) {
+                // We're running from a JAR file
+                fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+                folderPath_nio = fileSystem.getPath(folderPath);
+            } else {
+                // We're running from the file system (development)
+                folderPath_nio = Paths.get(uri);
+            }
+            
+            // Scan the directory for texture files
+            try (Stream<Path> files = Files.walk(folderPath_nio, 1)) {
+                files.filter(Files::isRegularFile)
+                     .forEach(file -> {
+                         String fileName = file.getFileName().toString();
+                         if (isTextureFile(fileName)) {
+                             String fullPath = folderPath + fileName;
+                             String cleanName = cleanTextureName(fileName);
+                             
+                             // Only add if not already found (extracted textures have priority)
+                             if (!textureCache.containsKey(cleanName)) {
+                                 textureCache.put(cleanName, fullPath);
+                                 System.out.println("  Found texture: \"" + fileName + "\" -> \"" + cleanName + "\"");
+                             }
+                         }
+                     });
+            }
+            
+            // Close the file system if we opened one
+            if (fileSystem != null) {
+                fileSystem.close();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error scanning folder " + folderPath + ": " + e.getMessage());
+            // Fallback to hardcoded scanning for this folder
+            fallbackScanFolder(folderPath);
+        }
+    }
+    
+    /**
+     * Fallback method using hardcoded patterns if dynamic scanning fails
+     */
+    private static void fallbackScanFolder(String folderPath) {
+        System.out.println("  Using fallback scanning for " + folderPath);
         
-        // Try some common extracted texture patterns
-        String[] commonExtractedPatterns = {
-            "Quequis_House_texture_0.png", "Quequis_House_texture_1.png", "Quequis_House_texture_2.png",
-            "Quequis_House_texture_0.jpg", "Quequis_House_texture_1.jpg", "Quequis_House_texture_2.jpg",
-            "Quequis_House_diffuse.png", "Quequis_House_normal.png", "Quequis_House_specular.png",
-            "Quequis_House_wood.png", "Quequis_House_metal.png", "Quequis_House_wall.png"
-        };
-        
-        int extractedCount = 0;
-        for (String pattern : commonExtractedPatterns) {
-            if (textureExists(EXTRACTED_FOLDER + pattern)) {
-                String cleanName = cleanTextureName(pattern);
-                textureCache.put(cleanName, EXTRACTED_FOLDER + pattern);
-                System.out.println("  Found extracted texture: \"" + pattern + "\" -> \"" + cleanName + "\"");
-                extractedCount++;
+        if (folderPath.equals(EXTRACTED_FOLDER)) {
+            // Try some common extracted texture patterns
+            String[] commonExtractedPatterns = {
+                "Quequis_House_texture_0.png", "Quequis_House_texture_1.png", "Quequis_House_texture_2.png",
+                "Quequis_House_texture_0.jpg", "Quequis_House_texture_1.jpg", "Quequis_House_texture_2.jpg",
+                "Quequis_House_diffuse.png", "Quequis_House_normal.png", "Quequis_House_specular.png",
+                "Quequis_House_wood.png", "Quequis_House_metal.png", "Quequis_House_wall.png"
+            };
+            
+            for (String pattern : commonExtractedPatterns) {
+                if (textureExists(folderPath + pattern)) {
+                    String cleanName = cleanTextureName(pattern);
+                    textureCache.put(cleanName, folderPath + pattern);
+                    System.out.println("  Found (fallback): \"" + pattern + "\" -> \"" + cleanName + "\"");
+                }
+            }
+        } else if (folderPath.equals(TEXTURE_FOLDER)) {
+            // Fallback patterns for house folder
+            String[] knownTextures = {
+                "Wood.png", "Windows.png", "Wall_W.png", "Tile.jpg", "Table.png",
+                "Roof_tiles.jpg", "Road.jpg", "Plaster.png", "Plaster_01.png", "Plaster_02.png",
+                "Metal.jpg", "Metal_01.png", "Metal_02.jpg", "Metal_03.jpg", "MetalPlates.jpg",
+                "Marble.jpg", "Houses.png", "Houses_01.png", "Grass.png", "Ground_dirt.jpg",
+                "brick_wall.png", "brick_stone.jpg", "brick_modern.jpg", "Office_Ceiling.jpg",
+                "Washbasin_M.png", "Toilet.png", "Shelf_B.png", "Shelf_FR.png", "Shelf_FR_I.png",
+                "Refrigerator.png", "Refrigerator_01.png", "Refrijerator_M.png", "Oven.png",
+                "Light.png", "Light_Emissor.png", "Grill.png", "Ventilation.png", "Showcase.png",
+                "Soda_fountain.001.png", "Phone.png", "Paintings.png", "Napkinholder.png",
+                "Knife.png", "cardboard_boxes.png", "Waffle_maker.png", "plants_flowers.png",
+                "cactus.png", "Plants_01.png", "Plants_02.png", "extinguisher.png"
+            };
+            
+            for (String texture : knownTextures) {
+                if (textureExists(folderPath + texture)) {
+                    String cleanName = cleanTextureName(texture);
+                    if (!textureCache.containsKey(cleanName)) {
+                        textureCache.put(cleanName, folderPath + texture);
+                        System.out.println("  Found (fallback): \"" + texture + "\" -> \"" + cleanName + "\"");
+                    }
+                }
             }
         }
-        
-        if (extractedCount > 0) {
-            System.out.println("Found " + extractedCount + " extracted textures");
-        } else {
-            System.out.println("No extracted textures found (run texture extractor first)");
+    }
+    
+    /**
+     * Check if a file is a texture file based on its extension
+     */
+    private static boolean isTextureFile(String fileName) {
+        String lowerName = fileName.toLowerCase();
+        for (String extension : TEXTURE_EXTENSIONS) {
+            if (lowerName.endsWith(extension)) {
+                return true;
+            }
         }
+        return false;
     }
     
     /**
