@@ -14,8 +14,9 @@ public class TextureMatcher {
     // Common texture file extensions
     private static final String[] TEXTURE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tga"};
     
-    // Texture folder path
+    // Texture folder paths
     private static final String TEXTURE_FOLDER = "textures/house/";
+    private static final String EXTRACTED_FOLDER = "textures/extracted/";
     
     /**
      * Initialize the texture cache by scanning the house folder
@@ -41,17 +42,57 @@ public class TextureMatcher {
             "cactus.png", "Plants_01.png", "Plants_02.png", "extinguisher.png"
         };
         
-        // Build texture cache with cleaned names for matching
+        // First, scan for extracted textures (these get priority)
+        System.out.println("Scanning for extracted textures in " + EXTRACTED_FOLDER + "...");
+        scanExtractedTextures();
+        
+        // Then scan house folder for additional textures
         for (String texture : knownTextures) {
             if (textureExists(TEXTURE_FOLDER + texture)) {
                 String cleanName = cleanTextureName(texture);
-                textureCache.put(cleanName, TEXTURE_FOLDER + texture);
-                System.out.println("  Found texture: \"" + texture + "\" -> \"" + cleanName + "\"");
+                // Only add if not already found in extracted folder
+                if (!textureCache.containsKey(cleanName)) {
+                    textureCache.put(cleanName, TEXTURE_FOLDER + texture);
+                    System.out.println("  Found house texture: \"" + texture + "\" -> \"" + cleanName + "\"");
+                }
             }
         }
         
         System.out.println("Texture cache initialized with " + textureCache.size() + " textures");
         cacheInitialized = true;
+    }
+    
+    /**
+     * Scan the extracted textures folder for any GLB-extracted textures
+     */
+    private static void scanExtractedTextures() {
+        // For now, we'll use a simple approach since Java doesn't have great built-in
+        // directory scanning in the classpath. In a full implementation, you might
+        // want to use a more sophisticated approach or pre-generate a list.
+        
+        // Try some common extracted texture patterns
+        String[] commonExtractedPatterns = {
+            "Quequis_House_texture_0.png", "Quequis_House_texture_1.png", "Quequis_House_texture_2.png",
+            "Quequis_House_texture_0.jpg", "Quequis_House_texture_1.jpg", "Quequis_House_texture_2.jpg",
+            "Quequis_House_diffuse.png", "Quequis_House_normal.png", "Quequis_House_specular.png",
+            "Quequis_House_wood.png", "Quequis_House_metal.png", "Quequis_House_wall.png"
+        };
+        
+        int extractedCount = 0;
+        for (String pattern : commonExtractedPatterns) {
+            if (textureExists(EXTRACTED_FOLDER + pattern)) {
+                String cleanName = cleanTextureName(pattern);
+                textureCache.put(cleanName, EXTRACTED_FOLDER + pattern);
+                System.out.println("  Found extracted texture: \"" + pattern + "\" -> \"" + cleanName + "\"");
+                extractedCount++;
+            }
+        }
+        
+        if (extractedCount > 0) {
+            System.out.println("Found " + extractedCount + " extracted textures");
+        } else {
+            System.out.println("No extracted textures found (run texture extractor first)");
+        }
     }
     
     /**

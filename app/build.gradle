@@ -46,3 +46,20 @@ run {
     // Enable LWJGL debug mode
     systemProperty "org.lwjgl.util.DebugLoader", "true"
 }
+
+// Task to extract textures from GLB files
+task extractTextures(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'mystuff.utils.GLBTextureExtractor'
+    
+    // Default arguments - can be overridden
+    def glbFile = project.hasProperty('glbFile') ? project.glbFile : 'models/Quequis_House.glb'
+    def outputDir = project.hasProperty('outputDir') ? project.outputDir : 'src/main/resources/textures/extracted'
+    
+    args = [glbFile, outputDir]
+    
+    doFirst {
+        println "Extracting textures from: $glbFile"
+        println "Output directory: $outputDir"
+    }
+}
