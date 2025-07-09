@@ -13,6 +13,34 @@ import java.util.stream.Stream;
 
 public class TextureMatcher {
     
+    // Material type classification
+    public enum MaterialType {
+        TEXTURED,    // Normal textured material
+        GLASS,       // Transparent/translucent material
+        MIRROR,      // Reflective material
+        COLOR,       // Solid color material
+        EMISSIVE     // Light-emitting material
+    }
+    
+    // Material information container
+    public static class MaterialInfo {
+        public final String texturePath;
+        public final MaterialType type;
+        public final float[] color;  // RGB color for non-textured materials
+        public final float alpha;    // Alpha transparency (0.0 = transparent, 1.0 = opaque)
+        
+        public MaterialInfo(String texturePath, MaterialType type, float[] color, float alpha) {
+            this.texturePath = texturePath;
+            this.type = type;
+            this.color = color != null ? color : new float[]{1.0f, 1.0f, 1.0f};
+            this.alpha = alpha;
+        }
+        
+        public MaterialInfo(String texturePath) {
+            this(texturePath, MaterialType.TEXTURED, null, 1.0f);
+        }
+    }
+    
     private static Map<String, String> textureCache = new HashMap<>();
     private static boolean cacheInitialized = false;
     
@@ -138,58 +166,6 @@ public class TextureMatcher {
     }
     
     /**
-     * Find the best matching texture for a material name
-     */
-    public static String findBestTexture(String materialName) {
-        if (!cacheInitialized) {
-            initializeTextureCache();
-        }
-        
-        if (materialName == null || materialName.trim().isEmpty()) {
-            return getFallbackTexture();
-        }
-        
-        String cleanMaterialName = materialName.toLowerCase().trim();
-        
-        // 1. Try exact match first
-        if (textureCache.containsKey(cleanMaterialName)) {
-            String match = textureCache.get(cleanMaterialName);
-            System.out.println("  Exact match: \"" + materialName + "\" -> \"" + match + "\"");
-            return match;
-        }
-        
-        // 2. Try common material type mapping BEFORE fuzzy matching
-        String mappedTexture = getMappedTexture(cleanMaterialName);
-        if (mappedTexture != null) {
-            System.out.println("  Material type match: \"" + materialName + "\" -> \"" + mappedTexture + "\"");
-            return mappedTexture;
-        }
-        
-        // 3. Try partial matches with higher threshold
-        String bestMatch = null;
-        int bestScore = 0;
-        
-        for (Map.Entry<String, String> entry : textureCache.entrySet()) {
-            String textureName = entry.getKey();
-            String texturePath = entry.getValue();
-            
-            int score = calculateMatchScore(cleanMaterialName, textureName);
-            if (score > bestScore && score > 10) { // Lowered threshold to 10 for better coverage
-                bestScore = score;
-                bestMatch = texturePath;
-            }
-        }
-        
-        if (bestMatch != null) {
-            System.out.println("  Fuzzy match: \"" + materialName + "\" -> \"" + bestMatch + "\" (score: " + bestScore + ")");
-            return bestMatch;
-        }
-        
-        System.out.println("  No match found for: \"" + materialName + "\", using fallback");
-        return getFallbackTexture();
-    }
-    
-    /**
      * Calculate match score between material name and texture name
      */
     private static int calculateMatchScore(String materialName, String textureName) {
@@ -217,77 +193,6 @@ public class TextureMatcher {
         }
         
         return score;
-    }
-    
-    /**
-     * Get mapped texture for common material types
-     */
-    private static String getMappedTexture(String materialName) {
-        // Common material type mappings
-        if (materialName.contains("wood") || materialName.contains("timber")) {
-            return findTextureByPattern("wood");
-        }
-        if (materialName.contains("metal") || materialName.contains("steel") || materialName.contains("iron")) {
-            return findTextureByPattern("metal");
-        }
-        if (materialName.contains("wall") || materialName.contains("brick")) {
-            return findTextureByPattern("brick_wall");
-        }
-        if (materialName.contains("window") || materialName.contains("glass")) {
-            return findTextureByPattern("windows");
-        }
-        if (materialName.contains("roof") || materialName.contains("tile")) {
-            return findTextureByPattern("roof");
-        }
-        if (materialName.contains("floor") || materialName.contains("ground")) {
-            return findTextureByPattern("floor");
-        }
-        if (materialName.contains("door") || materialName.contains("plank")) {
-            return findTextureByPattern("door");
-        }
-        
-        // Color-based materials
-        if (materialName.contains("white") || materialName.equals("colorwhite")) {
-            return findTextureByPattern("plaster"); // Use white/light colored texture
-        }
-        if (materialName.contains("black")) {
-            return findTextureByPattern("metal"); // Use dark texture
-        }
-        if (materialName.contains("blue")) {
-            return findTextureByPattern("concrete"); // Use neutral blue-ish texture
-        }
-        if (materialName.contains("green") || materialName.contains("color_g")) {
-            return findTextureByPattern("grass"); // Use green texture
-        }
-        
-        // Special materials
-        if (materialName.contains("mirror")) {
-            return findTextureByPattern("windows"); // Use reflective glass texture
-        }
-        if (materialName.contains("default") || materialName.equals("default")) {
-            return findTextureByPattern("plaster"); // Use neutral texture
-        }
-        
-        return null;
-    }
-    
-    /**
-     * Find the first texture that contains the given pattern
-     */
-    private static String findTextureByPattern(String pattern) {
-        // First try exact match
-        if (textureCache.containsKey(pattern)) {
-            return textureCache.get(pattern);
-        }
-        
-        // Then try to find any texture containing the pattern
-        for (Map.Entry<String, String> entry : textureCache.entrySet()) {
-            if (entry.getKey().contains(pattern)) {
-                return entry.getValue();
-            }
-        }
-        
-        return null;
     }
     
     /**
@@ -342,5 +247,190 @@ public class TextureMatcher {
             initializeTextureCache();
         }
         return new HashMap<>(textureCache);
+    }
+
+    /**
+     * Get material information including type and rendering properties
+     */
+    public static MaterialInfo getMaterialInfo(String materialName) {
+        if (!cacheInitialized) {
+            initializeTextureCache();
+        }
+        
+        if (materialName == null || materialName.trim().isEmpty()) {
+            return new MaterialInfo(getFallbackTexture());
+        }
+        
+        String cleanMaterialName = materialName.toLowerCase().trim();
+        
+        // Detect special material types
+        MaterialType detectedType = detectMaterialType(cleanMaterialName);
+        
+        switch (detectedType) {
+            case GLASS:
+                return createGlassMaterial(cleanMaterialName);
+            case MIRROR:
+                return createMirrorMaterial(cleanMaterialName);
+            case COLOR:
+                return createColorMaterial(cleanMaterialName);
+            case EMISSIVE:
+                return createEmissiveMaterial(cleanMaterialName);
+            default:
+                // TEXTURED - find best texture match
+                String texturePath = findBestTextureMatch(cleanMaterialName);
+                return new MaterialInfo(texturePath);
+        }
+    }
+    
+    /**
+     * Legacy method for backward compatibility
+     */
+    public static String findBestTexture(String materialName) {
+        return getMaterialInfo(materialName).texturePath;
+    }
+    
+    /**
+     * Detect material type based on name patterns
+     */
+    private static MaterialType detectMaterialType(String materialName) {
+        // Glass materials
+        if (materialName.contains("glass") || materialName.contains("window") || 
+            materialName.contains("transparent") || materialName.contains("crystal")) {
+            return MaterialType.GLASS;
+        }
+        
+        // Mirror materials
+        if (materialName.contains("mirror") || materialName.contains("reflection") ||
+            materialName.contains("chrome") || materialName.contains("shiny")) {
+            return MaterialType.MIRROR;
+        }
+        
+        // Light emissive materials
+        if (materialName.contains("light") || materialName.contains("lamp") ||
+            materialName.contains("emission") || materialName.contains("glow") ||
+            materialName.contains("emissor")) {
+            return MaterialType.EMISSIVE;
+        }
+        
+        // Color materials (solid colors)
+        if (materialName.equals("black") || materialName.equals("white") || 
+            materialName.equals("red") || materialName.equals("blue") || 
+            materialName.equals("green") || materialName.equals("yellow") ||
+            materialName.equals("colorwhite") || materialName.equals("color_g") ||
+            materialName.contains("color") && !materialName.contains("_")) {
+            return MaterialType.COLOR;
+        }
+        
+        // Default to textured
+        return MaterialType.TEXTURED;
+    }
+    
+    /**
+     * Create glass material with transparency
+     */
+    private static MaterialInfo createGlassMaterial(String materialName) {
+        // Try to find a glass texture first
+        String texturePath = findBestTextureMatch(materialName);
+        
+        // If no texture found, use transparent properties
+        if (texturePath.equals(getFallbackTexture())) {
+            // Use subtle blue-tinted glass color
+            float[] glassColor = {0.8f, 0.9f, 1.0f}; // Light blue tint
+            return new MaterialInfo(null, MaterialType.GLASS, glassColor, 0.3f);
+        }
+        
+        // Use texture with transparency
+        return new MaterialInfo(texturePath, MaterialType.GLASS, null, 0.5f);
+    }
+    
+    /**
+     * Create mirror material with reflective properties
+     */
+    private static MaterialInfo createMirrorMaterial(String materialName) {
+        // Try to find a metallic texture
+        String texturePath = findBestTextureMatch(materialName);
+        
+        if (texturePath.equals(getFallbackTexture())) {
+            // Use reflective silver color
+            float[] mirrorColor = {0.9f, 0.9f, 0.9f}; // Silver
+            return new MaterialInfo(null, MaterialType.MIRROR, mirrorColor, 1.0f);
+        }
+        
+        return new MaterialInfo(texturePath, MaterialType.MIRROR, null, 1.0f);
+    }
+    
+    /**
+     * Create color material with solid color
+     */
+    private static MaterialInfo createColorMaterial(String materialName) {
+        float[] color = parseColorFromName(materialName);
+        return new MaterialInfo(null, MaterialType.COLOR, color, 1.0f);
+    }
+    
+    /**
+     * Create emissive (light-emitting) material
+     */
+    private static MaterialInfo createEmissiveMaterial(String materialName) {
+        // Try to find light texture first
+        String texturePath = findBestTextureMatch(materialName);
+        
+        if (texturePath.equals(getFallbackTexture())) {
+            // Use bright white/yellow for lights
+            float[] lightColor = {1.0f, 1.0f, 0.8f}; // Warm white
+            return new MaterialInfo(null, MaterialType.EMISSIVE, lightColor, 1.0f);
+        }
+        
+        return new MaterialInfo(texturePath, MaterialType.EMISSIVE, null, 1.0f);
+    }
+    
+    /**
+     * Parse color from material name
+     */
+    private static float[] parseColorFromName(String materialName) {
+        switch (materialName) {
+            case "black": return new float[]{0.0f, 0.0f, 0.0f};
+            case "white": case "colorwhite": return new float[]{1.0f, 1.0f, 1.0f};
+            case "red": return new float[]{1.0f, 0.0f, 0.0f};
+            case "green": case "color_g": return new float[]{0.0f, 1.0f, 0.0f};
+            case "blue": return new float[]{0.0f, 0.0f, 1.0f};
+            case "yellow": return new float[]{1.0f, 1.0f, 0.0f};
+            case "gray": case "grey": return new float[]{0.5f, 0.5f, 0.5f};
+            default: return new float[]{0.8f, 0.8f, 0.8f}; // Default light gray
+        }
+    }
+    
+    /**
+     * Find the best matching texture for a material name (original logic)
+     */
+    private static String findBestTextureMatch(String materialName) {
+        // 1. Try exact match first
+        if (textureCache.containsKey(materialName)) {
+            String match = textureCache.get(materialName);
+            System.out.println("  Exact match: \"" + materialName + "\" -> \"" + match + "\"");
+            return match;
+        }
+        
+        // 2. Use fuzzy matching to find the best approximate match
+        String bestMatch = null;
+        int bestScore = 0;
+        
+        for (Map.Entry<String, String> entry : textureCache.entrySet()) {
+            String textureName = entry.getKey();
+            String texturePath = entry.getValue();
+            
+            int score = calculateMatchScore(materialName, textureName);
+            if (score > bestScore && score > 15) { // Increased threshold for better quality matches
+                bestScore = score;
+                bestMatch = texturePath;
+            }
+        }
+        
+        if (bestMatch != null) {
+            System.out.println("  Fuzzy match: \"" + materialName + "\" -> \"" + bestMatch + "\" (score: " + bestScore + ")");
+            return bestMatch;
+        }
+        
+        System.out.println("  No match found for: \"" + materialName + "\", using fallback");
+        return getFallbackTexture();
     }
 } 
