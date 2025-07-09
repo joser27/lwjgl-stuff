@@ -11,7 +11,7 @@ public class Beggar extends GameObject {
     private static final int ANIMATION_FRAMES = 24;
     private static final float ANIMATION_SPEED = 12.0f; // Frames per second (slightly slower for walking)
     private static final float WALK_SPEED = 2.0f; // Units per second for movement
-    private static final float BEGGAR_SCALE = 2.0f; // Size of the beggar model
+    private static final float BEGGAR_SCALE = 1.1f; // Size of the beggar model
     
     private List<OBJModelRenderer> walkFrames;
     private float animationTime;

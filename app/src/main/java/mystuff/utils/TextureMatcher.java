@@ -158,7 +158,14 @@ public class TextureMatcher {
             return match;
         }
         
-        // 2. Try partial matches
+        // 2. Try common material type mapping BEFORE fuzzy matching
+        String mappedTexture = getMappedTexture(cleanMaterialName);
+        if (mappedTexture != null) {
+            System.out.println("  Material type match: \"" + materialName + "\" -> \"" + mappedTexture + "\"");
+            return mappedTexture;
+        }
+        
+        // 3. Try partial matches with higher threshold
         String bestMatch = null;
         int bestScore = 0;
         
@@ -167,7 +174,7 @@ public class TextureMatcher {
             String texturePath = entry.getValue();
             
             int score = calculateMatchScore(cleanMaterialName, textureName);
-            if (score > bestScore && score > 2) { // Minimum score threshold
+            if (score > bestScore && score > 10) { // Lowered threshold to 10 for better coverage
                 bestScore = score;
                 bestMatch = texturePath;
             }
@@ -176,13 +183,6 @@ public class TextureMatcher {
         if (bestMatch != null) {
             System.out.println("  Fuzzy match: \"" + materialName + "\" -> \"" + bestMatch + "\" (score: " + bestScore + ")");
             return bestMatch;
-        }
-        
-        // 3. Try common material type mapping
-        String mappedTexture = getMappedTexture(cleanMaterialName);
-        if (mappedTexture != null) {
-            System.out.println("  Mapped match: \"" + materialName + "\" -> \"" + mappedTexture + "\"");
-            return mappedTexture;
         }
         
         System.out.println("  No match found for: \"" + materialName + "\", using fallback");
@@ -225,25 +225,66 @@ public class TextureMatcher {
     private static String getMappedTexture(String materialName) {
         // Common material type mappings
         if (materialName.contains("wood") || materialName.contains("timber")) {
-            return textureCache.get("wood");
+            return findTextureByPattern("wood");
         }
         if (materialName.contains("metal") || materialName.contains("steel") || materialName.contains("iron")) {
-            return textureCache.get("metal");
+            return findTextureByPattern("metal");
         }
         if (materialName.contains("wall") || materialName.contains("brick")) {
-            return textureCache.get("brick_wall");
+            return findTextureByPattern("brick_wall");
         }
         if (materialName.contains("window") || materialName.contains("glass")) {
-            return textureCache.get("windows");
+            return findTextureByPattern("windows");
         }
         if (materialName.contains("roof") || materialName.contains("tile")) {
-            return textureCache.get("roof_tiles");
+            return findTextureByPattern("roof");
         }
         if (materialName.contains("floor") || materialName.contains("ground")) {
-            return textureCache.get("tile");
+            return findTextureByPattern("floor");
         }
         if (materialName.contains("door") || materialName.contains("plank")) {
-            return textureCache.get("wood");
+            return findTextureByPattern("door");
+        }
+        
+        // Color-based materials
+        if (materialName.contains("white") || materialName.equals("colorwhite")) {
+            return findTextureByPattern("plaster"); // Use white/light colored texture
+        }
+        if (materialName.contains("black")) {
+            return findTextureByPattern("metal"); // Use dark texture
+        }
+        if (materialName.contains("blue")) {
+            return findTextureByPattern("concrete"); // Use neutral blue-ish texture
+        }
+        if (materialName.contains("green") || materialName.contains("color_g")) {
+            return findTextureByPattern("grass"); // Use green texture
+        }
+        
+        // Special materials
+        if (materialName.contains("mirror")) {
+            return findTextureByPattern("windows"); // Use reflective glass texture
+        }
+        if (materialName.contains("default") || materialName.equals("default")) {
+            return findTextureByPattern("plaster"); // Use neutral texture
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Find the first texture that contains the given pattern
+     */
+    private static String findTextureByPattern(String pattern) {
+        // First try exact match
+        if (textureCache.containsKey(pattern)) {
+            return textureCache.get(pattern);
+        }
+        
+        // Then try to find any texture containing the pattern
+        for (Map.Entry<String, String> entry : textureCache.entrySet()) {
+            if (entry.getKey().contains(pattern)) {
+                return entry.getValue();
+            }
         }
         
         return null;

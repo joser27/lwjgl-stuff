@@ -75,7 +75,7 @@ public class Game implements IGameLogic {
             
             // Create beggar for walk animation testing (no world reference)
             float beggarStartY = groundLevel;
-            Beggar beggar = new Beggar(30, beggarStartY, 30, null); // Pass null for world
+            Beggar beggar = new Beggar(3, beggarStartY, 5, null); // Pass null for world
             beggar.setLooping(true); // Make the walk animation loop
             beggar.startWalking(); // Start walking immediately
             System.out.println("Beggar created at position: (30, " + beggarStartY + ", 30)");
