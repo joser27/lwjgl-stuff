@@ -49,7 +49,7 @@ public class Player extends GameObject {
     public static final float PLAYER_WIDTH = 1.0f;
     public static final float PLAYER_HEIGHT = 2.0f;
     public static final float PLAYER_DEPTH = 1.0f;
-    private static final float CAMERA_HEIGHT_OFFSET = 0.95f;
+    private static final float CAMERA_HEIGHT_OFFSET = 0.4f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);

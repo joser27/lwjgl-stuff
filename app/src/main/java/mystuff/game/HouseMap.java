@@ -5,7 +5,7 @@ import mystuff.utils.GLBModelRenderer;
 import org.lwjgl.opengl.GL11;
 
 public class HouseMap extends GameObject {
-    private static final float HOUSE_SCALE = 0.1f; // Reduced scale to make house smaller
+    private static final float HOUSE_SCALE = 1f;
     private static GLBModelRenderer houseModel = null;
     private static boolean triedLoad = false;
     private static String HOUSE_GLB = "models/Quequis_House.glb";
