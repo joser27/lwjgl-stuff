@@ -468,4 +468,73 @@ public class GLBModelRenderer {
             glDeleteTextures(fallbackTextureId);
         }
     }
+    
+    // === COLLISION DETECTION SUPPORT ===
+    
+    /**
+     * Get mesh information for geometry-based collision detection
+     */
+    public GLBLoader.MeshInfo[] getMeshes() {
+        return modelData != null ? modelData.meshes : null;
+    }
+    
+    /**
+     * Get vertex data for collision calculations
+     */
+    public float[] getVertices() {
+        return modelData != null ? modelData.vertices : null;
+    }
+    
+    /**
+     * Get index data for collision calculations
+     */
+    public int[] getIndices() {
+        return modelData != null ? modelData.indices : null;
+    }
+    
+    /**
+     * Get material information for mesh identification
+     */
+    public GLBLoader.MaterialInfo[] getMaterials() {
+        return modelData != null ? modelData.materials : null;
+    }
+    
+    /**
+     * Check if model has mesh data available for geometry-based collision detection
+     */
+    public boolean hasMeshData() {
+        return modelData != null && 
+               modelData.meshes != null && 
+               modelData.vertices != null && 
+               modelData.indices != null;
+    }
+    
+    /**
+     * Get the name of a mesh by index
+     */
+    public String getMeshName(int meshIndex) {
+        if (modelData == null || modelData.meshes == null || 
+            meshIndex < 0 || meshIndex >= modelData.meshes.length) {
+            return "unknown_mesh_" + meshIndex;
+        }
+        
+        GLBLoader.MeshInfo mesh = modelData.meshes[meshIndex];
+        String name = mesh.name;
+        
+        // If mesh name is null/empty, try to get material name
+        if (name == null || name.trim().isEmpty()) {
+            if (modelData.materials != null && 
+                mesh.materialIndex >= 0 && 
+                mesh.materialIndex < modelData.materials.length) {
+                name = modelData.materials[mesh.materialIndex].cleanName;
+            }
+        }
+        
+        // Fallback to numbered mesh
+        if (name == null || name.trim().isEmpty()) {
+            name = "mesh_" + meshIndex;
+        }
+        
+        return name;
+    }
 } 

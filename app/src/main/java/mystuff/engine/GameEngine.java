@@ -1,6 +1,7 @@
 package mystuff.engine;
 
 import mystuff.utils.Debug;
+import mystuff.utils.DebugRenderer;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -70,7 +71,7 @@ public class GameEngine implements Runnable {
                 gameThread.join(5000); // Wait up to 5 seconds for clean shutdown
             }
         } catch (InterruptedException e) {
-            System.err.println("Error stopping game thread: " + e.getMessage());
+            DebugRenderer.getInstance().addError("Error stopping game thread: " + e.getMessage(), 5.0f);
         }
     }
     
@@ -84,7 +85,7 @@ public class GameEngine implements Runnable {
                 // On some platforms, this can make the thread more time-critical
                 Thread.currentThread().setName("HighPriorityGameLoop");
             } catch (SecurityException e) {
-                System.err.println("Could not set thread properties: " + e.getMessage());
+                DebugRenderer.getInstance().addError("Could not set thread properties: " + e.getMessage(), 5.0f);
             }
         }
     }
@@ -110,7 +111,7 @@ public class GameEngine implements Runnable {
         try {
             window.setIcon("resources/icons/emoticon-32.png");
         } catch (Exception e) {
-            System.out.println("No custom icon found, using default window icon");
+            DebugRenderer.getInstance().addMessage("No custom icon found, using default window icon", 3.0f);
         }
         
         // Ensure the window's context is current on this thread
@@ -130,7 +131,7 @@ public class GameEngine implements Runnable {
         // Start performance tracking
         lastPerformanceReport = Timer.getCurrentTime();
         
-        System.out.println("Game engine initialized successfully");
+        DebugRenderer.getInstance().addMessage("Game engine initialized successfully", 3.0f);
     }
     
     private void gameLoop() {
@@ -165,9 +166,9 @@ public class GameEngine implements Runnable {
             
             // If we're falling behind, drop accumulator time
             if (accumulator > interval * 3) {
-                if (Debug.showPlayerInfo()) {
-                    System.out.println("WARNING: Game is running slow, dropping " + 
-                                    accumulator + " seconds of simulation time");
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addError("WARNING: Game is running slow, dropping " + 
+                                    accumulator + " seconds of simulation time", 3.0f);
                 }
                 accumulator = interval * 2;
             }
@@ -244,13 +245,13 @@ public class GameEngine implements Runnable {
     
     private void reportPerformance() {
         long currentTime = Timer.getCurrentTime();
-        if (currentTime - lastPerformanceReport >= PERFORMANCE_REPORT_INTERVAL && Debug.showPlayerInfo()) {
+        if (currentTime - lastPerformanceReport >= PERFORMANCE_REPORT_INTERVAL && Debug.isDebugMode()) {
             double elapsedSeconds = (currentTime - lastPerformanceReport) / 1_000_000_000.0;
             double avgFPS = frameCount / elapsedSeconds;
             double avgUPS = updateCount / elapsedSeconds;
             
-            System.out.printf("Performance: %.1f FPS, %.1f UPS, Update: %.2fms, Render: %.2fms, CPU: %.1f%%\n",
-                avgFPS, avgUPS, timer.getUpdateTimeMs(), timer.getRenderTimeMs(), timer.getFrameUtilization());
+            DebugRenderer.getInstance().addMessage(String.format("Performance: %.1f FPS, %.1f UPS, Update: %.2fms, Render: %.2fms, CPU: %.1f%%",
+                avgFPS, avgUPS, timer.getUpdateTimeMs(), timer.getRenderTimeMs(), timer.getFrameUtilization()), 5.0f);
             
             // Reset counters
             frameCount = 0;
@@ -273,7 +274,7 @@ public class GameEngine implements Runnable {
             long handle = window.getWindowHandle();
             if (GLFW.glfwGetCurrentContext() != handle) {
                 GLFW.glfwMakeContextCurrent(handle);
-                System.out.println("Re-bound OpenGL context before rendering");
+                DebugRenderer.getInstance().addMessage("Re-bound OpenGL context before rendering", 2.0f);
             }
             
             // Render game logic
@@ -282,7 +283,7 @@ public class GameEngine implements Runnable {
             // Update window (swap buffers)
             window.update();
         } catch (Exception e) {
-            System.err.println("Error during rendering: " + e.getMessage());
+            DebugRenderer.getInstance().addError("Error during rendering: " + e.getMessage(), 5.0f);
             e.printStackTrace();
         }
     }

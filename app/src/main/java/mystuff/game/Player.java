@@ -7,6 +7,7 @@ import mystuff.engine.Window;
 import mystuff.engine.Camera;
 import mystuff.utils.TextureLoader;
 import mystuff.utils.Debug;
+import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
 
 public class Player extends GameObject {
@@ -34,6 +35,8 @@ public class Player extends GameObject {
     
     // Collision
     private BoundingBox boundingBox;
+    private World world; // Reference to world for collision checks
+    private boolean collisionEnabled = true; // Temporary toggle for testing
     
     // No-clip mode
     private boolean noClipMode = false;
@@ -54,6 +57,7 @@ public class Player extends GameObject {
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
         this.camera = camera;
+        this.world = world; // Store world reference for collision checks
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
         
         updateBoundingBox();
@@ -62,9 +66,9 @@ public class Player extends GameObject {
         if (playerTexture == -1) {
             playerTexture = TextureLoader.loadTexture("textures/Wolf_Body.jpg");
             if (playerTexture == -1) {
-                System.err.println("Failed to load player texture!");
+                DebugRenderer.getInstance().addError("Failed to load player texture!", 5.0f);
             } else {
-                System.out.println("Successfully loaded player texture with ID: " + playerTexture);
+                DebugRenderer.getInstance().addMessage("Successfully loaded player texture with ID: " + playerTexture, 3.0f);
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, playerTexture);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
@@ -82,8 +86,20 @@ public class Player extends GameObject {
     public void update(Window window, float deltaTime) {
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
             Debug.toggleDebugMode();
-            Debug.toggleBoundingBoxes();
             Debug.togglePlayerInfo();
+        }
+        
+        // Temporary collision toggle for testing
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_C)) {
+            collisionEnabled = !collisionEnabled;
+            DebugRenderer.getInstance().addMessage("Collision detection: " + (collisionEnabled ? "ENABLED" : "DISABLED"), 3.0f);
+        }
+        
+        // Show detailed collision debug info
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_V)) {
+            DebugRenderer.getInstance().addMessage("=== DETAILED COLLISION DEBUG INFO ===", 5.0f);
+            DebugRenderer.getInstance().addMessage(CollisionManager.getInstance().getDebugInfo(), 5.0f);
+            DebugRenderer.getInstance().addMessage("=== END COLLISION DEBUG INFO ===", 5.0f);
         }
 
         handleKeyboardInput(window, deltaTime);
@@ -93,16 +109,7 @@ public class Player extends GameObject {
             updateHeightmapCollision(deltaTime);
         }
 
-        if (Debug.showPlayerInfo()) {
-            if (noClipMode) {
-                System.out.printf("SPIRIT MODE - Player: (%.2f, %.2f, %.2f) Camera: (%.2f, %.2f, %.2f)%n", 
-                    x, y, z, noClipCameraX, noClipCameraY, noClipCameraZ);
-                System.out.println("*** SPIRIT MODE ACTIVE - Press N to return to player ***");
-            } else {
-                System.out.printf("Position: (%.2f, %.2f, %.2f) Velocity: %.2f OnGround: %b%n", 
-                    x, y, z, velocity, isOnGround);
-            }
-        }
+
     }
     
     /**
@@ -129,9 +136,7 @@ public class Player extends GameObject {
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE) && isOnGround && !wasSpacePressed) {
             velocity = jumpForce;
             isOnGround = false;
-            if (Debug.showPlayerInfo()) {
-                System.out.println("JUMP! Velocity set to: " + jumpForce);
-            }
+
         }
         wasSpacePressed = KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_SPACE);
         
@@ -246,8 +251,50 @@ public class Player extends GameObject {
         float finalMoveX = (moveX * rightX + moveZ * forwardX) * speed * deltaTime;
         float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * speed * deltaTime;
         
-        x += finalMoveX;
-        z += finalMoveZ;
+        // Check collision before applying movement
+        float newX = x + finalMoveX;
+        float newZ = z + finalMoveZ;
+        
+        if (!wouldCollide(newX, y, newZ)) {
+            x = newX;
+            z = newZ;
+        } else {
+            // Try moving only in X direction
+            if (!wouldCollide(x + finalMoveX, y, z)) {
+                x += finalMoveX;
+            }
+            // Try moving only in Z direction
+            else if (!wouldCollide(x, y, z + finalMoveZ)) {
+                z += finalMoveZ;
+            }
+            // If both fail, don't move (full collision)
+        }
+    }
+    
+    /**
+     * Check if player would collide with world objects at given position
+     */
+    private boolean wouldCollide(float newX, float newY, float newZ) {
+        // Skip collision detection if disabled
+        if (!collisionEnabled) {
+            return false;
+        }
+        
+        // Create temporary bounding box for collision check
+        BoundingBox tempBox = BoundingBox.fromCenterAndSize(newX, newY, newZ, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
+        boolean collision = CollisionManager.getInstance().checkCollision(tempBox);
+        
+
+        
+        return collision;
+    }
+    
+    /**
+     * Check collision with all collidable entities
+     */
+    private boolean checkEntityCollisions(BoundingBox playerBox) {
+        // Use CollisionManager for collision detection
+        return CollisionManager.getInstance().checkCollision(playerBox);
     }
     
     private void updateHeightmapCollision(float deltaTime) {
@@ -257,9 +304,7 @@ public class Player extends GameObject {
         
         float groundHeight = GROUND_LEVEL;
         
-        if (Debug.showPlayerInfo()) {
-            System.out.printf("Player Y: %.2f, Ground Y: %.2f, Velocity: %.2f%n", y, groundHeight, velocity);
-        }
+
         
         velocity += gravity * deltaTime;
         velocity = Math.max(velocity, -MAX_VELOCITY);
@@ -335,13 +380,13 @@ public class Player extends GameObject {
             noClipCameraZ = z;
             camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
             
-            System.out.println("Entering SPIRIT MODE - Player body stays in place, camera can fly freely");
+            DebugRenderer.getInstance().addMessage("Entering SPIRIT MODE - Player body stays in place, camera can fly freely", 3.0f);
         } else if (wasNoClipMode && !noClipMode) {
             camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
-            System.out.println("Exiting SPIRIT MODE - Returning to normal gameplay");
+            DebugRenderer.getInstance().addMessage("Exiting SPIRIT MODE - Returning to normal gameplay", 3.0f);
         }
         
-        System.out.println("N key pressed! No-clip mode: " + (noClipMode ? "ON" : "OFF"));
+        DebugRenderer.getInstance().addMessage("N key pressed! No-clip mode: " + (noClipMode ? "ON" : "OFF"), 2.0f);
     }
     
     public float getSpeed() {

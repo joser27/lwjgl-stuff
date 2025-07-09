@@ -48,7 +48,7 @@ public class TextureMatcher {
     private static final String[] TEXTURE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".tga"};
     
     // Texture folder paths
-    private static final String TEXTURE_FOLDER = "textures/house/";
+    private static final String TEXTURE_FOLDER = "textures/taco_place/";
     
     /**
      * Initialize the texture cache by scanning the house folder

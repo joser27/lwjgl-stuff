@@ -8,6 +8,7 @@ import mystuff.engine.GameEngine;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 import mystuff.utils.Debug;
+import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
 import mystuff.utils.FogRenderer;
 
@@ -39,7 +40,7 @@ public class Game implements IGameLogic {
         try {
             // Don't create capabilities again - they were created in Window.init
             
-            System.out.println("Initializing OpenGL for Minecraft-like rendering...");
+            DebugRenderer.getInstance().addMessage("Initializing OpenGL for Minecraft-like rendering...", 3.0f);
             
             // Initialize OpenGL state
             GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -49,9 +50,9 @@ public class Game implements IGameLogic {
             GL11.glClearColor(0.5f, 0.8f, 1.0f, 1.0f); // Sky blue background
             
             // Print more detailed OpenGL information
-            System.out.println("Using OpenGL version: " + GL11.glGetString(GL11.GL_VERSION));
-            System.out.println("OpenGL vendor: " + GL11.glGetString(GL11.GL_VENDOR));
-            System.out.println("OpenGL renderer: " + GL11.glGetString(GL11.GL_RENDERER));
+            DebugRenderer.getInstance().addMessage("Using OpenGL version: " + GL11.glGetString(GL11.GL_VERSION), 3.0f);
+            DebugRenderer.getInstance().addMessage("OpenGL vendor: " + GL11.glGetString(GL11.GL_VENDOR), 3.0f);
+            DebugRenderer.getInstance().addMessage("OpenGL renderer: " + GL11.glGetString(GL11.GL_RENDERER), 3.0f);
             
             // Initialize game objects
             camera = new Camera(0, 0, 0);
@@ -70,7 +71,7 @@ public class Game implements IGameLogic {
             Mage mage = new Mage(40, mageStartY, 40);
             mage.setLooping(true); // Make the animation loop
             mage.playAttackAnimation(); // Start the animation immediately
-            System.out.println("Mage created at position: (40, " + mageStartY + ", 40)");
+            DebugRenderer.getInstance().addMessage("Mage created at position: (40, " + mageStartY + ", 40)", 2.0f);
             //entityManager.addEntity(mage);
             
             // Create beggar for walk animation testing (no world reference)
@@ -78,7 +79,7 @@ public class Game implements IGameLogic {
             Beggar beggar = new Beggar(3, beggarStartY, 5, null); // Pass null for world
             beggar.setLooping(true); // Make the walk animation loop
             beggar.startWalking(); // Start walking immediately
-            System.out.println("Beggar created at position: (30, " + beggarStartY + ", 30)");
+            DebugRenderer.getInstance().addMessage("Beggar created at position: (30, " + beggarStartY + ", 30)", 2.0f);
             entityManager.addEntity(beggar);
             
             // Create house on the map
@@ -86,13 +87,13 @@ public class Game implements IGameLogic {
             float houseZ = 0.0f; // Center the house
             float houseY = groundLevel; // Use fixed ground level
             HouseMap house = new HouseMap(houseX, houseY, houseZ);
-            System.out.println("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")");
+            DebugRenderer.getInstance().addMessage("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")", 2.0f);
             entityManager.addEntity(house);
             
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;
-            float startY = groundLevel + 1.0f; // Start 1 unit above ground level
+            float startY = groundLevel + 100.0f; // Start 1 unit above ground level
             Player player = new Player(startX, startY, startZ, camera, null); // Pass null for world
             // world.setPlayer(player); // Commented out - no world
             entityManager.addEntity(player);
@@ -151,7 +152,7 @@ public class Game implements IGameLogic {
         
         // No-clip mode toggle
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_N)) {
-            System.out.println("Game: N key detected!");
+            DebugRenderer.getInstance().addMessage("Game: N key detected!", 2.0f);
             Player player = entityManager.getPlayer();
             if (player != null) {
                 player.toggleNoClipMode();
@@ -160,7 +161,7 @@ public class Game implements IGameLogic {
         
         // Debug: Check if N key is being pressed at all
         if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_N)) {
-            System.out.println("Game: N key is currently pressed");
+            DebugRenderer.getInstance().addMessage("Game: N key is currently pressed", 2.0f);
         }
         
         // Horror intensity control
@@ -185,7 +186,7 @@ public class Game implements IGameLogic {
             Mage mage = entityManager.getFirstEntityOfType(Mage.class);
             if (mage != null) {
                 mage.playAttackAnimation();
-                System.out.println("Started mage attack animation!");
+                DebugRenderer.getInstance().addMessage("Started mage attack animation!", 2.0f);
             }
         }
         
@@ -195,10 +196,10 @@ public class Game implements IGameLogic {
             if (beggar != null) {
                 if (beggar.isWalking()) {
                     beggar.stopWalking();
-                    System.out.println("Beggar stopped walking!");
+                    DebugRenderer.getInstance().addMessage("Beggar stopped walking!", 2.0f);
                 } else {
                     beggar.startWalking();
-                    System.out.println("Beggar started walking!");
+                    DebugRenderer.getInstance().addMessage("Beggar started walking!", 2.0f);
                 }
             }
         }
@@ -240,6 +241,9 @@ public class Game implements IGameLogic {
             cpuUtilizationHistory[utilizationIndex] = timer.getFrameUtilization();
             utilizationIndex = (utilizationIndex + 1) % cpuUtilizationHistory.length;
         }
+        
+        // Update debug renderer
+        DebugRenderer.getInstance().update(interval);
     }
 
     @Override
@@ -248,7 +252,7 @@ public class Game implements IGameLogic {
             
             // Ensure we have a valid OpenGL context
             if (!org.lwjgl.opengl.GL.getCapabilities().OpenGL11) {
-                System.err.println("OpenGL 1.1 capabilities are not available. Skipping render cycle.");
+                DebugRenderer.getInstance().addError("OpenGL 1.1 capabilities are not available. Skipping render cycle.", 5.0f);
                 return;
             }
             
@@ -350,6 +354,9 @@ public class Game implements IGameLogic {
     }
 
     private void renderUI(Window window) {
+        // Save current OpenGL state
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glMatrixMode(GL11.GL_PROJECTION);
         GL11.glPushMatrix();
@@ -359,11 +366,14 @@ public class Game implements IGameLogic {
         GL11.glPushMatrix();
         GL11.glLoadIdentity();
         
+        // Force fill mode for UI rendering (not affected by wireframe mode)
+        GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
+        
         // Reset color for UI elements
         GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         
-        // Enhanced performance metrics
-        if (Debug.showFPS() && timer != null) {
+        // Enhanced performance metrics (only show when F3 debug mode is active)
+        if (Debug.isDebugMode() && timer != null) {
             int startY = 30;
             int lineHeight = 20;
             int line = 0;
@@ -428,8 +438,18 @@ public class Game implements IGameLogic {
             }
         }
         
-        // Enhanced player info
-        if (Debug.showPlayerInfo()) {
+        // Render debug information using DebugRenderer
+        Player player = entityManager.getPlayer();
+        if (player != null) {
+            DebugRenderer.getInstance().renderPlayerInfo(player, window.getWidth(), window.getHeight());
+            DebugRenderer.getInstance().renderCollisionInfo(CollisionManager.getInstance(), window.getWidth(), window.getHeight());
+        }
+        
+        // Render debug messages
+        DebugRenderer.getInstance().render(window.getWidth(), window.getHeight());
+        
+        // Enhanced player info (only show when F3 debug mode is active)
+        if (Debug.isDebugMode()) {
             String posText = String.format("Position: %.2f, %.2f, %.2f", 
                 camera.getX(), camera.getY(), camera.getZ());
             renderText(posText, 10, 30);
@@ -487,7 +507,9 @@ public class Game implements IGameLogic {
         GL11.glMatrixMode(GL11.GL_PROJECTION);
         GL11.glPopMatrix();
         GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        
+        // Restore OpenGL state
+        GL11.glPopAttrib();
     }
     
     /**
@@ -578,6 +600,6 @@ public class Game implements IGameLogic {
         int nextIndex = (currentIndex + 1) % types.length;
         fogRenderer.setFogType(types[nextIndex]);
         
-        System.out.println("T key pressed! Fog type changed to: " + types[nextIndex]);
+                    DebugRenderer.getInstance().addMessage("T key pressed! Fog type changed to: " + types[nextIndex], 3.0f);
     }
 } 

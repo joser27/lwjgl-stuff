@@ -2,15 +2,22 @@ package mystuff.game;
 
 import mystuff.engine.GameObject;
 import mystuff.utils.GLBModelRenderer;
+import mystuff.utils.GLBLoader.MeshInfo;
+import mystuff.utils.Debug;
+import mystuff.utils.DebugRenderer;
 import org.lwjgl.opengl.GL11;
+import static org.lwjgl.opengl.GL11.*;
+import java.util.List;
 
 public class HouseMap extends GameObject {
     private static final float HOUSE_SCALE = 1f;
     private static GLBModelRenderer houseModel = null;
     private static boolean triedLoad = false;
-    private static String HOUSE_GLB = "models/Quequis_House.glb";
+    private static String HOUSE_GLB = "models/Tacos.glb";
     
-
+    // Geometry-based collision detection
+    private GLBGeometryCollision geometryCollision;
+    
     public HouseMap(float x, float y, float z) {
         super(x, y, z);
         if (!triedLoad) {
@@ -20,17 +27,79 @@ public class HouseMap extends GameObject {
             houseModel = new GLBModelRenderer(HOUSE_GLB, "textures/missing_texture.jpg");
             triedLoad = true;
             if (houseModel.isLoaded()) {
-                System.out.println("House GLB loaded with automatic texture matching!");
-                System.out.println("  Vertices: " + houseModel.getVertexCount());
+                DebugRenderer.getInstance().addMessage("House GLB loaded with automatic texture matching!", 3.0f);
+                DebugRenderer.getInstance().addMessage("  Vertices: " + houseModel.getVertexCount(), 3.0f);
                 float[] bounds = houseModel.getModelBounds();
                 if (bounds != null) {
                     System.out.printf("  House bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
                         bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
                 }
             } else {
-                System.err.println("Failed to load house GLB model");
+                DebugRenderer.getInstance().addError("Failed to load house GLB model", 5.0f);
             }
         }
+        
+        // Create geometry-based collision system
+        setupGeometryCollision();
+        
+        // Register with CollisionManager for player collision detection
+        if (geometryCollision != null) {
+            CollisionManager.getInstance().addGLBGeometryCollision(geometryCollision);
+        }
+    }
+    
+    private void setupGeometryCollision() {
+        if (houseModel == null || !houseModel.isLoaded() || !houseModel.hasMeshData()) {
+            DebugRenderer.getInstance().addError("Cannot setup geometry collision - model not loaded or no mesh data", 5.0f);
+            return;
+        }
+        
+        // Create geometry collision system
+        geometryCollision = new GLBGeometryCollision(getX(), getY(), getZ(), HOUSE_SCALE);
+        
+        // Get mesh data from the GLB model
+        MeshInfo[] meshes = houseModel.getMeshes();
+        float[] vertices = houseModel.getVertices();
+        int[] indices = houseModel.getIndices();
+        
+        if (meshes == null || vertices == null || indices == null) {
+            DebugRenderer.getInstance().addError("Missing mesh data for geometry collision detection", 5.0f);
+            return;
+        }
+        
+        DebugRenderer.getInstance().addMessage("Setting up geometry collision for " + meshes.length + " meshes...", 3.0f);
+        
+        // Process each mesh to extract triangle geometry
+        for (int i = 0; i < meshes.length; i++) {
+            MeshInfo mesh = meshes[i];
+            String meshName = houseModel.getMeshName(i);
+            
+            // Add geometry data for this mesh (uses actual triangles like wireframe rendering)
+            geometryCollision.addGeometryData(vertices, indices, mesh);
+        }
+        
+        // Build overall bounds for quick culling
+        geometryCollision.buildOverallBounds();
+        
+        DebugRenderer.getInstance().addMessage("Geometry collision setup complete: " + geometryCollision.getTriangleCount() + " triangles", 3.0f);
+    }
+    
+    /**
+     * Check if player collides with this house (legacy method)
+     */
+    @Deprecated
+    public boolean checkCollision(Player player) {
+        if (geometryCollision == null || player.getBoundingBox() == null) {
+            return false;
+        }
+        return geometryCollision.checkCollision(player.getBoundingBox());
+    }
+    
+    /**
+     * Get the geometry collision system for this house
+     */
+    public GLBGeometryCollision getGeometryCollision() {
+        return geometryCollision;
     }
 
     @Override
@@ -54,6 +123,9 @@ public class HouseMap extends GameObject {
             // Fallback rendering if model fails to load
             renderFallbackCube();
         }
+        
+        // Geometry-based collision doesn't use bounding boxes for visualization
+        // Collision is based on actual triangle geometry
     }
     
     private void renderFallbackCube() {
@@ -100,7 +172,14 @@ public class HouseMap extends GameObject {
         GL11.glPopMatrix();
     }
 
+
+
     public void cleanup() {
+        // Unregister from CollisionManager
+        if (geometryCollision != null) {
+            CollisionManager.getInstance().removeGLBGeometryCollision(geometryCollision);
+        }
+        
         if (houseModel != null) {
             houseModel.cleanup();
         }

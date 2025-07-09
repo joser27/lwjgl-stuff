@@ -2,7 +2,6 @@ package mystuff.utils;
 
 public class Debug {
     private static boolean debugMode = false;
-    private static boolean showBoundingBoxes = false;
     private static boolean showPlayerInfo = false;
     private static boolean showBlockInfo = false;
     private static boolean showFPS = true;
@@ -10,36 +9,27 @@ public class Debug {
     // Toggle methods
     public static void toggleDebugMode() {
         debugMode = !debugMode;
-        System.out.println("Debug mode: " + (debugMode ? "ON" : "OFF"));
-    }
-
-    public static void toggleBoundingBoxes() {
-        showBoundingBoxes = !showBoundingBoxes;
-        System.out.println("Bounding boxes: " + (showBoundingBoxes ? "ON" : "OFF"));
+        DebugRenderer.getInstance().addMessage("Debug mode: " + (debugMode ? "ON" : "OFF"), 3.0f);
     }
 
     public static void togglePlayerInfo() {
         showPlayerInfo = !showPlayerInfo;
-        System.out.println("Player info: " + (showPlayerInfo ? "ON" : "OFF"));
+        DebugRenderer.getInstance().addMessage("Player info: " + (showPlayerInfo ? "ON" : "OFF"), 3.0f);
     }
 
     public static void toggleBlockInfo() {
         showBlockInfo = !showBlockInfo;
-        System.out.println("Block info: " + (showBlockInfo ? "ON" : "OFF"));
+        DebugRenderer.getInstance().addMessage("Block info: " + (showBlockInfo ? "ON" : "OFF"), 3.0f);
     }
 
     public static void toggleFPS() {
         showFPS = !showFPS;
-        System.out.println("FPS display: " + (showFPS ? "ON" : "OFF"));
+        DebugRenderer.getInstance().addMessage("FPS display: " + (showFPS ? "ON" : "OFF"), 3.0f);
     }
 
     // Getter methods
     public static boolean isDebugMode() {
         return debugMode;
-    }
-
-    public static boolean showBoundingBoxes() {
-        return debugMode && showBoundingBoxes;
     }
 
     public static boolean showPlayerInfo() {
