@@ -76,7 +76,7 @@ public class Game implements IGameLogic {
             
             // Create beggar for walk animation testing (no world reference)
             float beggarStartY = groundLevel;
-            Beggar beggar = new Beggar(3, beggarStartY, 5, null); // Pass null for world
+            Beggar beggar = new Beggar(-11, beggarStartY, -18, null); // Pass null for world
             beggar.setLooping(true); // Make the walk animation loop
             beggar.startWalking(); // Start walking immediately
             DebugRenderer.getInstance().addMessage("Beggar created at position: (30, " + beggarStartY + ", 30)", 2.0f);
@@ -445,9 +445,7 @@ public class Game implements IGameLogic {
             DebugRenderer.getInstance().renderCollisionInfo(CollisionManager.getInstance(), window.getWidth(), window.getHeight());
         }
         
-        // Render debug messages
-        DebugRenderer.getInstance().render(window.getWidth(), window.getHeight());
-        
+
         // Enhanced player info (only show when F3 debug mode is active)
         if (Debug.isDebugMode()) {
             String posText = String.format("Position: %.2f, %.2f, %.2f", 

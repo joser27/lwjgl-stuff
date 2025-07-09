@@ -21,7 +21,7 @@ public class Beggar extends GameObject {
     private World world; // Reference to world for terrain height (can be null)
     private static final float GROUND_LEVEL = 17.0f; // Fixed ground level when no terrain
     private float walkDirection = 1.0f; // 1.0f for positive x, -1.0f for negative x
-    private float walkRange = 50.0f; // How far to walk before turning around
+    private float walkRange = 15.0f; // How far to walk before turning around
     private float startX; // Starting position to calculate walk range
     
     public Beggar(float x, float y, float z, World world) {

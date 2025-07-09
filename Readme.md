@@ -1,198 +1,177 @@
-# LWJGL Minecraft Clone
+# LWJGL Testing & Sandbox Repository
 
-A 3D voxel-based Minecraft-like game built with Java and LWJGL (Lightweight Java Game Library). Features a fully explorable world with block-based terrain, physics, and various gameplay modes.
+A Java-based 3D graphics testing environment built with LWJGL (Lightweight Java Game Library). This repository serves as a sandbox for experimenting with OpenGL, 3D rendering, game engine concepts, and various graphics techniques.
 
 ![OpenGL](https://img.shields.io/badge/OpenGL-4.6-blue)
 ![LWJGL](https://img.shields.io/badge/LWJGL-3.3.3-green)
 ![Java](https://img.shields.io/badge/Java-11+-orange)
 
+## Overview
+
+This is a personal testing ground for exploring LWJGL and OpenGL concepts. It's not a complete game, but rather a collection of experiments and prototypes for learning 3D graphics programming.
+
 ## Features
 
-- **3D Voxel World**: Minecraft-style block-based terrain generation
-- **First-Person Camera**: Smooth mouse-look controls with pitch/yaw rotation
-- **Physics System**: Realistic gravity, collision detection, and jumping
-- **Chunk-based Rendering**: Optimized world loading and culling
-- **Multiple Game Modes**: Normal mode and NoClip (spectator) mode
-- **Sprint System**: Hold Shift while moving forward to sprint
-- **Performance Monitoring**: Real-time FPS, frame time, and CPU utilization
-- **Debug Tools**: Comprehensive debugging features for development
-- **Atmospheric Fog System**: Multiple fog types for horror atmosphere (Silent Hill style)
-- **Dynamic Horror Effects**: Adjustable fog intensity and horror levels
+### Core Engine
+- **3D Graphics Engine**: Basic OpenGL rendering pipeline
+- **Camera System**: First-person camera with mouse look controls
+- **Input Handling**: Keyboard and mouse input management
+- **Performance Monitoring**: Real-time FPS, frame timing, and CPU utilization
+- **Debug System**: Comprehensive in-game debugging tools
+
+### Graphics Experiments
+- **GLB Model Loading**: Support for GLTF/GLB 3D models with texture mapping
+- **OBJ Model Rendering**: Wavefront OBJ file format support
+- **Texture Management**: Dynamic texture loading and material system
+- **Animation System**: Basic keyframe animation support
+- **Wireframe Rendering**: Toggle between solid and wireframe modes
+
+### Physics & Collision
+- **Geometry-Based Collision**: Triangle-mesh collision detection for 3D models
+- **Bounding Box System**: AABB collision detection
+- **Physics Simulation**: Basic gravity and movement physics
+- **Collision Manager**: Centralized collision detection system
+
+### Visual Effects
+- **Fog System**: Multiple atmospheric fog types for mood setting
+- **Lighting**: Basic OpenGL lighting with ambient, diffuse, and specular components
+- **Material System**: Support for different material types (textured, glass, mirror, emissive)
+- **Font Rendering**: TrueType font support for UI elements
 
 ## How to Run
 
 ### Prerequisites
 - Java 11 or higher
-- Windows OS (native libraries are configured for Windows)
+- Windows OS (native libraries configured for Windows)
 
-### Running the Game
+### Running the Application
 From the project root directory:
 
 ```powershell
 .\gradlew.bat run
 ```
 
-The game will launch in a 1920x1080 window targeting 144 FPS.
+The application launches in a 1920x1080 window targeting 144 FPS.
 
 ## Controls
 
-### Movement
+### Movement & Camera
 | Key | Action |
 |-----|--------|
-| **W** | Move Forward |
-| **S** | Move Backward |
-| **A** | Strafe Left |
-| **D** | Strafe Right |
+| **W/A/S/D** | Move around the 3D space |
 | **Space** | Jump (when on ground) |
-| **Left Shift** | Sprint (while moving forward) |
+| **Left Shift** | Sprint |
 | **Mouse** | Look around (pitch/yaw) |
 
-### Game Controls
+### Mode Switching
 | Key | Action |
 |-----|--------|
-| **Escape** | Exit Game |
-| **P** | Pause/Unpause Game |
+| **N** | Toggle NoClip Mode (free camera movement) |
 | **F** | Toggle Wireframe Mode |
-| **N** | Toggle NoClip Mode (Spectator) |
-| **R** | Reset Player Position to (5, 5, 5) |
-| **T** | Cycle Through Fog Types |
+| **R** | Reset camera position |
 
-### Fog Controls
+### Debug & Testing
 | Key | Action |
 |-----|--------|
-| **T** | Cycle Through Fog Types (None, Light Mist, Dense Fog, Dark Mist, Storm Fog, Night Fog) |
-| **Up Arrow** | Increase Horror Intensity |
-| **Down Arrow** | Decrease Horror Intensity |
+| **F3** | Toggle Debug Mode (comprehensive debug overlay) |
+| **C** | Toggle collision detection |
+| **V** | Show detailed collision debug info |
+| **T** | Cycle through fog types |
+| **P** | Pause/Unpause |
 
-### Time Controls
+### Performance Controls
 | Key | Action |
 |-----|--------|
-| **[** | Decrease Time Scale |
-| **]** | Increase Time Scale |
+| **[** | Decrease time scale |
+| **]** | Increase time scale |
+| **Escape** | Exit application |
 
-### Debug Controls
-| Key | Action |
-|-----|--------|
-| **F3** | Toggle Debug Mode (enables all debug features) |
+## Debug Features (F3)
 
-## Debug Features
-
-The game includes comprehensive debug tools accessible via **F3**:
+When debug mode is enabled, you'll see:
 
 ### Performance Metrics
-- **FPS Counter**: Real-time frames per second
-- **Frame Time**: Current, average, maximum, and minimum frame times
-- **CPU Utilization**: Percentage and visual graph
-- **Memory Usage**: Current and total memory consumption
-- **Frame Timing Breakdown**: Update, render, and sleep times
+- Real-time FPS counter
+- Frame timing statistics (current, average, max, min)
+- CPU utilization percentage and graph
+- Memory usage tracking
+- Frame timing breakdown (update, render, sleep)
 
-### Player Information
-- **Position**: Real-time X, Y, Z coordinates
-- **Rotation**: Camera pitch and yaw angles
-- **Game Mode**: Current mode (Normal/NoClip)
-- **Sprint Status**: Visual indicator when sprinting
-- **Wireframe Status**: Shows when wireframe mode is active
-- **Game Time**: Total elapsed game time
+### Scene Information
+- Camera position and rotation
+- Player physics state (velocity, ground contact)
+- Collision detection statistics
+- Model loading status
+- Animation frame information
 
-### Performance Warnings
-- **Frame Time Spikes**: Alerts when frame times exceed 32ms
-- **High Memory Usage**: Warning when memory usage exceeds 90%
-
-### Physics Debug
-- **Collision Detection**: Performance metrics for block collision checks
-- **Ground Detection**: Real-time ground contact status
-- **Velocity Tracking**: Current movement velocity
-
-## Game Modes
-
-### Normal Mode (Default)
-- Standard Minecraft-like physics
-- Gravity affects the player
-- Collision detection with blocks
-- Sprint by holding Shift while moving forward
-- Jump with Space when on ground
-
-### NoClip Mode (Press N)
-- Free camera movement (spectator mode)
-- No collision detection
-- Fly through blocks and terrain
-- Independent camera movement from player position
-- Useful for exploring and debugging
-
-## World Features
-
-- **Block Types**: Dirt, Stone, Grass, Wood, Leaves
-- **Chunk Loading**: Dynamic world generation and loading
-- **Skybox**: Beautiful sky rendering with multiple skybox options
-- **Frustum Culling**: Optimized rendering only shows visible chunks
-- **Collision System**: Precise block-based collision detection
-- **Atmospheric Fog**: 6 different fog types for horror atmosphere
-- **Tree Variety**: Oak, Broadleaf, and Pine trees with different sizes and textures
-
-## Technical Details
-
-### Graphics
-- **OpenGL 4.6** with NVIDIA GPU support
-- **Texture Loading**: PNG texture support with fallback colors
-- **Font Rendering**: TrueType font support
-- **Wireframe Mode**: Toggle between solid and wireframe rendering
-
-### Performance
-- **Target FPS**: 144 FPS (configurable)
-- **High-Precision Threading**: Better timing accuracy
-- **Busy Wait Sleep Mode**: Reduced input latency
-- **Chunk-based Culling**: Only renders visible world sections
-
-### Architecture
-- **Component-Based**: Separate systems for physics, rendering, and input
-- **Entity System**: GameObject base class for all world objects
-- **Modular Design**: Clean separation between engine and game logic
+### Visual Debug
+- Wireframe rendering for geometry inspection
+- Collision box visualization
+- Model bounds display
+- Texture loading status
 
 ## Project Structure
 
 ```
 app/
 ├── src/main/java/
-│   ├── mystuff/engine/     # Core engine components
-│   ├── mystuff/game/       # Game-specific logic
-│   └── mystuff/utils/      # Utility classes
-├── resources/              # Game assets
-│   ├── textures/          # Block and entity textures
+│   ├── mystuff/engine/     # Core engine (Window, Camera, Timer, etc.)
+│   ├── mystuff/game/       # Game objects and logic
+│   └── mystuff/utils/      # Utilities (texture loading, model loading, etc.)
+├── resources/
+│   ├── models/            # 3D models (GLB, OBJ files)
+│   ├── textures/          # Texture files
+│   ├── animations/        # Animation frames
 │   └── fonts/             # Font files
 └── build.gradle           # Build configuration
 ```
 
-## Development
+## Technical Details
 
-The game is built with:
-- **LWJGL 3.3.3**: OpenGL bindings and windowing
-- **Gradle**: Build system and dependency management
-- **OpenGL**: 3D graphics rendering
-- **Java 11+**: Programming language
+### Graphics Pipeline
+- **OpenGL 4.6** with modern rendering techniques
+- **GLB/GLTF Support**: Industry-standard 3D model format
+- **Material System**: Support for various material types
+- **Texture Management**: Dynamic loading with fallback system
 
-### Debug Tips
-1. Use **F3** to enable debug mode for comprehensive information
-2. **NoClip mode (N)** is great for exploring world generation
-3. **Wireframe mode (F)** helps visualize geometry
-4. Monitor performance metrics to optimize gameplay
-5. Use **R** to quickly reset position if stuck
+### Performance Features
+- **High-Precision Timing**: Accurate frame timing and performance monitoring
+- **Optimized Rendering**: Frustum culling and efficient draw calls
+- **Memory Management**: Proper resource cleanup and texture caching
+
+### Architecture
+- **Component-Based Design**: Modular systems for different functionality
+- **Entity System**: GameObject base class for all 3D objects
+- **Debug Integration**: Comprehensive debugging throughout the codebase
+
+## Development Notes
+
+This repository is used for:
+- **Learning LWJGL**: Understanding OpenGL bindings and 3D graphics
+- **Testing Concepts**: Experimenting with rendering techniques
+- **Prototyping**: Quick testing of game engine ideas
+- **Performance Analysis**: Monitoring and optimizing graphics performance
+
+### Current Experiments
+- GLB model loading and rendering
+- Geometry-based collision detection
+- Material and texture systems
+- Animation playback
+- Performance profiling
 
 ## Troubleshooting
 
-### Texture Loading Issues
-If textures fail to load, ensure the `app/resources/` directory contains:
-- `textures/dirt.png`
-- `textures/stone.png` 
-- `textures/grass.png`
-- `textures/player.png`
-- `textures/Skyboxes/BlueSkySkybox.png`
-- `fonts/reflow-sans-demo/Reflow Sans DEMO.ttf`
+### Common Issues
+- **Model Loading**: Ensure GLB/OBJ files are in the correct resource directories
+- **Texture Issues**: Check texture file paths and formats
+- **Performance**: Use debug mode (F3) to monitor frame times and CPU usage
 
-### Performance Issues
-- Monitor FPS and frame time with debug mode
-- Reduce render distance if experiencing lag
-- Check CPU utilization graph for bottlenecks
+### Debug Tips
+1. Use **F3** for comprehensive debug information
+2. **NoClip mode (N)** for free camera movement
+3. **Wireframe mode (F)** for geometry inspection
+4. Monitor performance metrics for optimization opportunities
 
 ---
 
-Enjoy exploring your voxel world! 🎮⛏️
+This is a personal sandbox for LWJGL experimentation. Feel free to explore the code and use it as a reference for your own projects! 🎮🔧
