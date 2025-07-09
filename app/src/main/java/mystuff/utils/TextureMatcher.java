@@ -21,7 +21,6 @@ public class TextureMatcher {
     
     // Texture folder paths
     private static final String TEXTURE_FOLDER = "textures/house/";
-    private static final String EXTRACTED_FOLDER = "textures/extracted/";
     
     /**
      * Initialize the texture cache by scanning the house folder
@@ -29,14 +28,10 @@ public class TextureMatcher {
     public static void initializeTextureCache() {
         if (cacheInitialized) return;
         
-        System.out.println("Dynamically scanning texture folders...");
+        System.out.println("Scanning texture folder...");
         
-        // First, scan for extracted textures (these get priority)
-        System.out.println("Scanning for extracted textures in " + EXTRACTED_FOLDER + "...");
-        scanTexturesInFolder(EXTRACTED_FOLDER);
-        
-        // Then scan house folder for additional textures
-        System.out.println("Scanning for house textures in " + TEXTURE_FOLDER + "...");
+        // Scan house folder for textures
+        System.out.println("Scanning for textures in " + TEXTURE_FOLDER + "...");
         scanTexturesInFolder(TEXTURE_FOLDER);
         
         System.out.println("Texture cache initialized with " + textureCache.size() + " textures");
@@ -78,11 +73,9 @@ public class TextureMatcher {
                              String fullPath = folderPath + fileName;
                              String cleanName = cleanTextureName(fileName);
                              
-                             // Only add if not already found (extracted textures have priority)
-                             if (!textureCache.containsKey(cleanName)) {
-                                 textureCache.put(cleanName, fullPath);
-                                 System.out.println("  Found texture: \"" + fileName + "\" -> \"" + cleanName + "\"");
-                             }
+                             // Add the texture to cache
+                             textureCache.put(cleanName, fullPath);
+                             System.out.println("  Found texture: \"" + fileName + "\" -> \"" + cleanName + "\"");
                          }
                      });
             }
@@ -105,23 +98,7 @@ public class TextureMatcher {
     private static void fallbackScanFolder(String folderPath) {
         System.out.println("  Using fallback scanning for " + folderPath);
         
-        if (folderPath.equals(EXTRACTED_FOLDER)) {
-            // Try some common extracted texture patterns
-            String[] commonExtractedPatterns = {
-                "Quequis_House_texture_0.png", "Quequis_House_texture_1.png", "Quequis_House_texture_2.png",
-                "Quequis_House_texture_0.jpg", "Quequis_House_texture_1.jpg", "Quequis_House_texture_2.jpg",
-                "Quequis_House_diffuse.png", "Quequis_House_normal.png", "Quequis_House_specular.png",
-                "Quequis_House_wood.png", "Quequis_House_metal.png", "Quequis_House_wall.png"
-            };
-            
-            for (String pattern : commonExtractedPatterns) {
-                if (textureExists(folderPath + pattern)) {
-                    String cleanName = cleanTextureName(pattern);
-                    textureCache.put(cleanName, folderPath + pattern);
-                    System.out.println("  Found (fallback): \"" + pattern + "\" -> \"" + cleanName + "\"");
-                }
-            }
-        } else if (folderPath.equals(TEXTURE_FOLDER)) {
+        if (folderPath.equals(TEXTURE_FOLDER)) {
             // Fallback patterns for house folder
             String[] knownTextures = {
                 "Wood.png", "Windows.png", "Wall_W.png", "Tile.jpg", "Table.png",
@@ -138,12 +115,10 @@ public class TextureMatcher {
             };
             
             for (String texture : knownTextures) {
-                if (textureExists(folderPath + texture)) {
+                if (textureExists(TEXTURE_FOLDER + texture)) {
                     String cleanName = cleanTextureName(texture);
-                    if (!textureCache.containsKey(cleanName)) {
-                        textureCache.put(cleanName, folderPath + texture);
-                        System.out.println("  Found (fallback): \"" + texture + "\" -> \"" + cleanName + "\"");
-                    }
+                    textureCache.put(cleanName, TEXTURE_FOLDER + texture);
+                    System.out.println("  Found (fallback): \"" + texture + "\" -> \"" + cleanName + "\"");
                 }
             }
         }
