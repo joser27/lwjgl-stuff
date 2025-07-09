@@ -188,6 +188,17 @@ public class GLBModelRenderer {
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         
+        // Enable alpha blending for transparency support
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Enable alpha testing to discard fully transparent pixels
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, 0.1f); // Discard pixels with alpha < 0.1
+        
+        // Keep depth writing enabled for proper depth sorting
+        glDepthMask(true);
+        
         // Enable face culling with proper winding
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
@@ -222,6 +233,10 @@ public class GLBModelRenderer {
     private void cleanupRenderingStates() {
         // Disable texturing
         glDisable(GL_TEXTURE_2D);
+        
+        // Disable alpha blending and testing
+        glDisable(GL_BLEND);
+        glDisable(GL_ALPHA_TEST);
         
         // Restore OpenGL states
         glDisable(GL_LIGHTING);
