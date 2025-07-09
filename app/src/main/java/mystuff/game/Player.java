@@ -5,7 +5,6 @@ import org.lwjgl.opengl.GL11;
 import mystuff.engine.GameObject;
 import mystuff.engine.Window;
 import mystuff.engine.Camera;
-import mystuff.utils.TextureLoader;
 import mystuff.utils.Debug;
 import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
@@ -45,14 +44,13 @@ public class Player extends GameObject {
     private float noClipCameraX, noClipCameraY, noClipCameraZ;
 
     // Rendering
-    private static int playerTexture = -1;
     private PlayerRenderer renderer;
 
     // Player dimensions
-    public static final float PLAYER_WIDTH = 1.0f;
-    public static final float PLAYER_HEIGHT = 2.0f;
-    public static final float PLAYER_DEPTH = 1.0f;
-    private static final float CAMERA_HEIGHT_OFFSET = 0.4f;
+    public static final float PLAYER_WIDTH = 0.5f;
+    public static final float PLAYER_HEIGHT = 1.0f;
+    public static final float PLAYER_DEPTH = 0.5f;
+    private static final float CAMERA_HEIGHT_OFFSET = 1.0f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
@@ -61,22 +59,6 @@ public class Player extends GameObject {
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
         
         updateBoundingBox();
-
-        // Load player texture
-        if (playerTexture == -1) {
-            playerTexture = TextureLoader.loadTexture("textures/Wolf_Body.jpg");
-            if (playerTexture == -1) {
-                DebugRenderer.getInstance().addError("Failed to load player texture!", 5.0f);
-            } else {
-                DebugRenderer.getInstance().addMessage("Successfully loaded player texture with ID: " + playerTexture, 3.0f);
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, playerTexture);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
-                GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
-                GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
-            }
-        }
 
         this.renderer = new PlayerRenderer();
         this.renderer.init();

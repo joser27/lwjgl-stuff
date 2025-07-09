@@ -2,6 +2,7 @@ package mystuff.game;
 
 import mystuff.engine.GameObject;
 import mystuff.utils.OBJModelRenderer;
+import mystuff.utils.DebugRenderer;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -37,24 +38,23 @@ public class Beggar extends GameObject {
     private void loadWalkAnimation() {
         walkFrames = new ArrayList<>();
         
-        System.out.println("Loading beggar walk animation...");
+        DebugRenderer.getInstance().addMessage("Loading beggar walk animation...", 3.0f);
         
         for (int i = 1; i <= ANIMATION_FRAMES; i++) {
             String framePath = String.format("animations/beggar/walk/walk%04d.obj", i);
-            System.out.println("Attempting to load: " + framePath);
             OBJModelRenderer frame = new OBJModelRenderer(framePath, "textures/beggar1st_albedo.png");
             
             if (frame.isLoaded()) {
                 walkFrames.add(frame);
-                System.out.println("✓ Loaded walk frame " + i + "/" + ANIMATION_FRAMES);
+                DebugRenderer.getInstance().addMessage("✓ Loaded walk frame " + i + "/" + ANIMATION_FRAMES, 2.0f);
             } else {
-                System.err.println("✗ Failed to load walk frame " + i + ": " + framePath);
+                DebugRenderer.getInstance().addError("✗ Failed to load walk frame " + i + ": " + framePath, 3.0f);
             }
         }
         
-        System.out.println("Walk animation loading complete. Loaded " + walkFrames.size() + " frames.");
+        DebugRenderer.getInstance().addMessage("Walk animation loading complete. Loaded " + walkFrames.size() + " frames.", 3.0f);
         if (walkFrames.isEmpty()) {
-            System.err.println("WARNING: No walk animation frames were loaded successfully!");
+            DebugRenderer.getInstance().addError("WARNING: No walk animation frames were loaded successfully!", 5.0f);
         }
     }
     
@@ -74,7 +74,7 @@ public class Beggar extends GameObject {
     @Override
     public void render() {
         if (walkFrames.isEmpty()) {
-            System.err.println("Beggar: No walk frames loaded! Rendering fallback cube.");
+            DebugRenderer.getInstance().addError("Beggar: No walk frames loaded! Rendering fallback cube.", 2.0f);
             renderFallbackCube();
             return;
         }
@@ -114,9 +114,9 @@ public class Beggar extends GameObject {
             
             GL11.glPopMatrix();
         } else {
-            System.err.println("Beggar: Failed to render frame " + currentFrame + 
+            DebugRenderer.getInstance().addError("Beggar: Failed to render frame " + currentFrame + 
                              " (model: " + (currentModel != null) + 
-                             ", loaded: " + (currentModel != null ? currentModel.isLoaded() : false) + ")");
+                             ", loaded: " + (currentModel != null ? currentModel.isLoaded() : false) + ")", 2.0f);
         }
     }
     
