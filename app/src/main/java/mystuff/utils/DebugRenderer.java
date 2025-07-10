@@ -234,6 +234,12 @@ public class DebugRenderer {
         renderText(statsText, 10, y, 0.0f, 1.0f, 0.0f);
         y += lineHeight;
         
+        // Collision visualization info
+        renderText("Collision Shapes: Green=Player Capsule, Red=World Triangles", 10, y, 1.0f, 1.0f, 0.0f);
+        y += lineHeight;
+        renderText("Press B to toggle collision shape visualization", 10, y, 0.5f, 0.5f, 0.5f);
+        y += lineHeight;
+        
         // Restore OpenGL state
         glMatrixMode(GL_PROJECTION);
         glPopMatrix();

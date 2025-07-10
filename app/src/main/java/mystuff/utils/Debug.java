@@ -5,11 +5,18 @@ public class Debug {
     private static boolean showPlayerInfo = false;
     private static boolean showBlockInfo = false;
     private static boolean showFPS = true;
+    private static boolean showCollisionShapes = false;
 
     // Toggle methods
     public static void toggleDebugMode() {
         debugMode = !debugMode;
         DebugRenderer.getInstance().addMessage("Debug mode: " + (debugMode ? "ON" : "OFF"), 3.0f);
+        
+        // Auto-enable collision shapes when entering debug mode
+        if (debugMode && !showCollisionShapes) {
+            showCollisionShapes = true;
+            DebugRenderer.getInstance().addMessage("Collision shapes auto-enabled (press B to toggle)", 3.0f);
+        }
     }
 
     public static void togglePlayerInfo() {
@@ -25,6 +32,11 @@ public class Debug {
     public static void toggleFPS() {
         showFPS = !showFPS;
         DebugRenderer.getInstance().addMessage("FPS display: " + (showFPS ? "ON" : "OFF"), 3.0f);
+    }
+    
+    public static void toggleCollisionShapes() {
+        showCollisionShapes = !showCollisionShapes;
+        DebugRenderer.getInstance().addMessage("Collision shapes: " + (showCollisionShapes ? "ON" : "OFF"), 3.0f);
     }
 
     // Getter methods
@@ -42,5 +54,9 @@ public class Debug {
 
     public static boolean showFPS() {
         return showFPS;
+    }
+    
+    public static boolean showCollisionShapes() {
+        return debugMode && showCollisionShapes;
     }
 } 

@@ -63,7 +63,24 @@ public class CollisionManager {
     }
     
     /**
-     * Check collision with all registered collision systems
+     * Check collision with all registered collision systems using a capsule collider
+     */
+    public boolean checkCapsuleCollision(CapsuleCollider capsule) {
+        if (capsule == null) {
+            return false;
+        }
+        
+        for (GLBGeometryCollision geometryCollision : geometryCollisions) {
+            if (geometryCollision.checkCapsuleCollision(capsule)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check collision with all registered collision systems using a bounding box (legacy)
      */
     public boolean checkCollision(BoundingBox playerBox) {
         return checkGeometryCollision(playerBox);

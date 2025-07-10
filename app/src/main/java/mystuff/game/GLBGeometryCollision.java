@@ -2,8 +2,10 @@ package mystuff.game;
 
 import mystuff.utils.GLBLoader.MeshInfo;
 import mystuff.utils.DebugRenderer;
+import mystuff.utils.Debug;
 import java.util.ArrayList;
 import java.util.List;
+import static org.lwjgl.opengl.GL11.*;
 
 /**
  * Geometry-based collision detection for GLB models.
@@ -133,6 +135,53 @@ public class GLBGeometryCollision {
     }
     
     /**
+     * Check collision with player capsule collider - OPTIMIZED
+     */
+    public boolean checkCapsuleCollision(CapsuleCollider capsule) {
+        if (capsule == null || collisionTriangles.isEmpty()) {
+            return false;
+        }
+        
+        // Quick bounds check first using capsule's bounding box
+        if (overallBounds != null && !capsule.getBoundingBox().intersects(overallBounds)) {
+            return false;
+        }
+        
+        // Get capsule position for distance culling
+        float capsuleX = capsule.getCenterX();
+        float capsuleY = capsule.getCenterY();
+        float capsuleZ = capsule.getCenterZ();
+        float cullRadius = capsule.getRadius() + capsule.getHeight();
+        float cullRadiusSq = cullRadius * cullRadius;
+        
+        // Check against individual triangles with distance culling
+        int checkedTriangles = 0;
+        for (Triangle triangle : collisionTriangles) {
+            // Quick distance check to triangle center before expensive intersection test
+            float triangleCenterX = (triangle.v1[0] + triangle.v2[0] + triangle.v3[0]) / 3f;
+            float triangleCenterY = (triangle.v1[1] + triangle.v2[1] + triangle.v3[1]) / 3f;
+            float triangleCenterZ = (triangle.v1[2] + triangle.v2[2] + triangle.v3[2]) / 3f;
+            
+            float dx = triangleCenterX - capsuleX;
+            float dy = triangleCenterY - capsuleY;
+            float dz = triangleCenterZ - capsuleZ;
+            float distSq = dx*dx + dy*dy + dz*dz;
+            
+            // Skip distant triangles
+            if (distSq > cullRadiusSq) {
+                continue;
+            }
+            
+            checkedTriangles++;
+            if (capsule.intersectsTriangle(triangle.v1, triangle.v2, triangle.v3)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
      * Check if a triangle intersects with a bounding box
      */
     private boolean triangleIntersectsBox(Triangle triangle, BoundingBox box) {
@@ -203,5 +252,47 @@ public class GLBGeometryCollision {
     
     public int getTriangleCount() {
         return collisionTriangles.size();
+    }
+    
+    /**
+     * Render collision triangles as wireframe for debug visualization
+     */
+    public void renderDebugWireframe() {
+        if (!Debug.showCollisionShapes() || collisionTriangles.isEmpty()) {
+            return;
+        }
+        
+        // Save current OpenGL state
+        glPushAttrib(GL_ALL_ATTRIB_BITS);
+        
+        // Setup wireframe rendering
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_LIGHTING);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glLineWidth(1.0f);
+        
+        // Set red color for collision triangles
+        glColor3f(1.0f, 0.0f, 0.0f);
+        
+        // Render all collision triangles
+        glBegin(GL_TRIANGLES);
+        for (Triangle triangle : collisionTriangles) {
+            // Only render triangles near the camera to avoid overwhelming the view
+            float[] center = {
+                (triangle.v1[0] + triangle.v2[0] + triangle.v3[0]) / 3f,
+                (triangle.v1[1] + triangle.v2[1] + triangle.v3[1]) / 3f,
+                (triangle.v1[2] + triangle.v2[2] + triangle.v3[2]) / 3f
+            };
+            
+            // TODO: Add distance culling if needed (would need camera position)
+            
+            glVertex3f(triangle.v1[0], triangle.v1[1], triangle.v1[2]);
+            glVertex3f(triangle.v2[0], triangle.v2[1], triangle.v2[2]);
+            glVertex3f(triangle.v3[0], triangle.v3[1], triangle.v3[2]);
+        }
+        glEnd();
+        
+        // Restore OpenGL state
+        glPopAttrib();
     }
 } 

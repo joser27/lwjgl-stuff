@@ -85,14 +85,14 @@ public class HouseMap extends GameObject {
     }
     
     /**
-     * Check if player collides with this house (legacy method)
+     * Check if player collides with this house (legacy method - now uses capsule collision)
      */
     @Deprecated
     public boolean checkCollision(Player player) {
-        if (geometryCollision == null || player.getBoundingBox() == null) {
+        if (geometryCollision == null || player.getCapsuleCollider() == null) {
             return false;
         }
-        return geometryCollision.checkCollision(player.getBoundingBox());
+        return geometryCollision.checkCapsuleCollision(player.getCapsuleCollider());
     }
     
     /**
@@ -124,8 +124,10 @@ public class HouseMap extends GameObject {
             renderFallbackCube();
         }
         
-        // Geometry-based collision doesn't use bounding boxes for visualization
-        // Collision is based on actual triangle geometry
+        // Render collision geometry in debug mode
+        if (geometryCollision != null) {
+            geometryCollision.renderDebugWireframe();
+        }
     }
     
     private void renderFallbackCube() {

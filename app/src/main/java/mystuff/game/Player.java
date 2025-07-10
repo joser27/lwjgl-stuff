@@ -34,9 +34,11 @@ public class Player extends GameObject {
     private static final float MAX_VELOCITY = 30.0f;
     
     // Collision
-    private BoundingBox boundingBox;
+    private CapsuleCollider capsuleCollider;
     private World world; // Reference to world for collision checks
     private boolean collisionEnabled = true; // Temporary toggle for testing
+    private float lastColliderUpdateX, lastColliderUpdateY, lastColliderUpdateZ;
+    private static final float COLLIDER_UPDATE_THRESHOLD = 0.01f; // Only update collider if moved this much
     
     // No-clip mode
     private boolean noClipMode = false;
@@ -51,7 +53,6 @@ public class Player extends GameObject {
     // Player dimensions
     public static final float PLAYER_WIDTH = 1.0f;
     public static final float PLAYER_HEIGHT = 2.0f;
-    public static final float PLAYER_DEPTH = 1.0f;
     private static final float CAMERA_HEIGHT_OFFSET = 0.4f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
@@ -60,7 +61,7 @@ public class Player extends GameObject {
         this.world = world; // Store world reference for collision checks
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
         
-        updateBoundingBox();
+        updateCapsuleCollider();
 
         // Load player texture
         if (playerTexture == -1) {
@@ -93,6 +94,9 @@ public class Player extends GameObject {
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_C)) {
             collisionEnabled = !collisionEnabled;
             DebugRenderer.getInstance().addMessage("Collision detection: " + (collisionEnabled ? "ENABLED" : "DISABLED"), 3.0f);
+            if (collisionEnabled) {
+                DebugRenderer.getInstance().addMessage("Using OPTIMIZED capsule collision (was causing lag before)", 3.0f);
+            }
         }
         
         // Show detailed collision debug info
@@ -101,9 +105,14 @@ public class Player extends GameObject {
             DebugRenderer.getInstance().addMessage(CollisionManager.getInstance().getDebugInfo(), 5.0f);
             DebugRenderer.getInstance().addMessage("=== END COLLISION DEBUG INFO ===", 5.0f);
         }
+        
+        // Toggle collision shape visualization
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_B)) {
+            Debug.toggleCollisionShapes();
+        }
 
         handleKeyboardInput(window, deltaTime);
-        updateBoundingBox();
+        updateCapsuleCollider();
         
         if (!noClipMode) {
             updateHeightmapCollision(deltaTime);
@@ -113,13 +122,24 @@ public class Player extends GameObject {
     }
     
     /**
-     * Updates the bounding box to match the player's position
+     * Updates the capsule collider to match the player's position (only if moved significantly)
      */
-    private void updateBoundingBox() {
-        boundingBox = BoundingBox.fromCenterAndSize(
-            x, y, z, 
-            PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
-        );
+    private void updateCapsuleCollider() {
+        // Only update collider if player has moved enough to matter
+        float dx = x - lastColliderUpdateX;
+        float dy = y - lastColliderUpdateY;
+        float dz = z - lastColliderUpdateZ;
+        float moveDistSq = dx*dx + dy*dy + dz*dz;
+        
+        if (capsuleCollider == null || moveDistSq >= COLLIDER_UPDATE_THRESHOLD * COLLIDER_UPDATE_THRESHOLD) {
+            capsuleCollider = CapsuleCollider.fromPlayerDimensions(
+                x, y, z, 
+                PLAYER_WIDTH, PLAYER_HEIGHT
+            );
+            lastColliderUpdateX = x;
+            lastColliderUpdateY = y;
+            lastColliderUpdateZ = z;
+        }
     }
     
     private void handleKeyboardInput(Window window, float deltaTime) {
@@ -280,11 +300,20 @@ public class Player extends GameObject {
             return false;
         }
         
-        // Create temporary bounding box for collision check
-        BoundingBox tempBox = BoundingBox.fromCenterAndSize(newX, newY, newZ, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
-        boolean collision = CollisionManager.getInstance().checkCollision(tempBox);
+        // Quick distance check - if we haven't moved much, skip collision detection
+        float dx = newX - x;
+        float dy = newY - y; 
+        float dz = newZ - z;
+        float moveDistanceSq = dx*dx + dy*dy + dz*dz;
         
-
+        // If movement is tiny, don't bother checking collision
+        if (moveDistanceSq < 0.0001f) {
+            return false;
+        }
+        
+        // Create temporary capsule collider for collision check
+        CapsuleCollider tempCapsule = CapsuleCollider.fromPlayerDimensions(newX, newY, newZ, PLAYER_WIDTH, PLAYER_HEIGHT);
+        boolean collision = CollisionManager.getInstance().checkCapsuleCollision(tempCapsule);
         
         return collision;
     }
@@ -292,9 +321,9 @@ public class Player extends GameObject {
     /**
      * Check collision with all collidable entities
      */
-    private boolean checkEntityCollisions(BoundingBox playerBox) {
+    private boolean checkEntityCollisions(CapsuleCollider playerCapsule) {
         // Use CollisionManager for collision detection
-        return CollisionManager.getInstance().checkCollision(playerBox);
+        return CollisionManager.getInstance().checkCapsuleCollision(playerCapsule);
     }
     
     private void updateHeightmapCollision(float deltaTime) {
@@ -327,6 +356,11 @@ public class Player extends GameObject {
     @Override
     public void render() {
         renderer.render(this, camera.getYaw(), camera.getPitch());
+        
+        // Render collision shape in debug mode
+        if (Debug.showCollisionShapes() && capsuleCollider != null) {
+            capsuleCollider.renderDebugWireframe();
+        }
     }
 
     public void cleanup() {
@@ -355,7 +389,11 @@ public class Player extends GameObject {
     }
     
     public BoundingBox getBoundingBox() {
-        return boundingBox;
+        return capsuleCollider != null ? capsuleCollider.getBoundingBox() : null;
+    }
+    
+    public CapsuleCollider getCapsuleCollider() {
+        return capsuleCollider;
     }
     
     public boolean isNoClipMode() {
