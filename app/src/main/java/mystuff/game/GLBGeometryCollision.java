@@ -204,4 +204,18 @@ public class GLBGeometryCollision {
     public int getTriangleCount() {
         return collisionTriangles.size();
     }
+    
+    /**
+     * Get the collision triangles for rendering
+     */
+    public List<Triangle> getCollisionTriangles() {
+        return collisionTriangles;
+    }
+    
+    /**
+     * Get the overall bounding box for rendering
+     */
+    public BoundingBox getOverallBounds() {
+        return overallBounds;
+    }
 } 

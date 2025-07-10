@@ -11,6 +11,7 @@ import mystuff.utils.Debug;
 import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
 import mystuff.utils.FogRenderer;
+import java.util.List;
 
 /**
  * Main game class that implements the game logic interface
@@ -90,12 +91,21 @@ public class Game implements IGameLogic {
             DebugRenderer.getInstance().addMessage("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")", 2.0f);
             entityManager.addEntity(house);
             
+            // Create wooden stairs with custom scale
+            float stairsX = 20.0f; // Position stairs near the house
+            float stairsY = groundLevel; // Place on ground
+            float stairsZ = 0.0f;
+            float stairsScale = 2.0f;
+            GLBObject woodenStairs = ObjectSpawner.spawnGLBModel(stairsX, stairsY, stairsZ, 
+                "models/wooden_stairs_21.glb", "textures/wooden_stairs_21/", stairsScale, 0, 0, 0);
+
+            entityManager.addEntity(woodenStairs);
+            
             // Create player at a reasonable starting position on the ground
-            float startX = -24;
-            float startZ = -135;
+            float startX = 0;
+            float startZ = 0;
             float startY = groundLevel + 10.0f; // Start 1 unit above ground level
             Player player = new Player(startX, startY, startZ, camera, null); // Pass null for world
-            // world.setPlayer(player); // Commented out - no world
             entityManager.addEntity(player);
             
             playerRenderer = new PlayerRenderer();
@@ -338,6 +348,16 @@ public class Game implements IGameLogic {
             // Render player with special renderer (for texture mapping)
             if (player != null) {
                 playerRenderer.render(player, camera.getYaw(), camera.getPitch());
+            }
+            
+            // Render collision boxes in debug mode
+            if (Debug.isDebugMode() && player != null) {
+                DebugRenderer.getInstance().renderPlayerCollisionBox(player);
+                
+                // Render GLB collision geometry
+                List<GLBGeometryCollision> geometryCollisions = CollisionManager.getInstance().getGeometryCollisions();
+                DebugRenderer.getInstance().renderGLBCollisionGeometry(geometryCollisions);
+                DebugRenderer.getInstance().renderGLBCollisionBounds(geometryCollisions);
             }
             
             // Restore OpenGL state after solid object rendering

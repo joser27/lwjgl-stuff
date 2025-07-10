@@ -26,22 +26,23 @@ public class Player extends GameObject {
     // Physics
     private float velocity = 0.0f;
     private float gravity = -25.0f;
-    private static final float GROUND_LEVEL = 17.0f;
     private boolean isOnGround = false;
     private float jumpForce = 12.0f;
     private boolean wasSpacePressed = false;
     private static final float MAX_VELOCITY = 30.0f;
     
-    // Step-up system for handling stairs and small bumps
-    private static final float MAX_STEP_HEIGHT = 0.1f; // Maximum height to step up
-    private static final float STEP_UP_DISTANCE = 0.2f; // How far forward to test for step-up
-    private static final float MAX_SLOPE_ANGLE = 90.0f; // Maximum walkable slope angle
-    private static final float COLLISION_RESPONSE_FACTOR = 1.0f; // How much to slide along surfaces
+    // Simple ground detection and step-up system
+    private static final float GROUND_LEVEL = 17.0f;
+    private static final float MAX_STEP_HEIGHT = 0.3f; // Maximum height to step up
+    private static final float STEP_UP_DISTANCE = 0.1f; // How far forward to test for step-up
+    private static final float COLLISION_RESPONSE_FACTOR = 0.8f; // How much to slide along surfaces
     
     // Collision
     private BoundingBox boundingBox;
+    private CapsuleCollision capsuleCollision;
     private World world; // Reference to world for collision checks
     private boolean collisionEnabled = true; // Temporary toggle for testing
+    private boolean useCapsuleCollision = true; // Toggle between box and capsule collision
     
     // No-clip mode
     private boolean noClipMode = false;
@@ -57,6 +58,10 @@ public class Player extends GameObject {
     public static final float PLAYER_HEIGHT = 0.5f;
     public static final float PLAYER_DEPTH = 0.5f;
     private static final float CAMERA_HEIGHT_OFFSET = 1.0f;
+    
+    // Capsule collision dimensions (bean-shaped for better movement)
+    public static final float CAPSULE_RADIUS = 0.2f;  // Skinnier radius for more precise movement
+    public static final float CAPSULE_HEIGHT = 0.6f;  // Taller for better coverage
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
@@ -65,6 +70,7 @@ public class Player extends GameObject {
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
         
         updateBoundingBox();
+        updateCapsuleCollision();
 
         this.renderer = new PlayerRenderer();
         this.renderer.init();
@@ -89,9 +95,16 @@ public class Player extends GameObject {
             DebugRenderer.getInstance().addMessage(CollisionManager.getInstance().getDebugInfo(), 5.0f);
             DebugRenderer.getInstance().addMessage("=== END COLLISION DEBUG INFO ===", 5.0f);
         }
+        
+        // Toggle between box and capsule collision
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_B)) {
+            useCapsuleCollision = !useCapsuleCollision;
+            DebugRenderer.getInstance().addMessage("Collision type: " + (useCapsuleCollision ? "CAPSULE (Bean-shaped)" : "BOX (Cube)"), 3.0f);
+        }
 
         handleKeyboardInput(window, deltaTime);
         updateBoundingBox();
+        updateCapsuleCollision();
         
         if (!noClipMode) {
             updateHeightmapCollision(deltaTime);
@@ -107,6 +120,16 @@ public class Player extends GameObject {
         boundingBox = BoundingBox.fromCenterAndSize(
             x, y, z, 
             PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
+        );
+    }
+    
+    /**
+     * Updates the capsule collision to match the player's position
+     */
+    private void updateCapsuleCollision() {
+        capsuleCollision = CapsuleCollision.fromCenterAndSize(
+            x, y, z,
+            CAPSULE_RADIUS, CAPSULE_HEIGHT
         );
     }
     
@@ -244,13 +267,13 @@ public class Player extends GameObject {
     }
 
     /**
-     * Apply movement with step-up system for handling stairs and small bumps
+     * Apply movement with simple collision detection and step-up
      */
     private void applyMovementWithStepUp(float moveX, float moveZ) {
         float newX = x + moveX;
         float newZ = z + moveZ;
         
-        // First, try normal movement
+        // First, try normal movement at current height
         if (!wouldCollide(newX, y, newZ)) {
             x = newX;
             z = newZ;
@@ -258,7 +281,7 @@ public class Player extends GameObject {
         }
         
         // If normal movement fails, try step-up
-        float stepUpY = tryStepUp(newX, newZ);
+        float stepUpY = tryStepUpWithRaycast(newX, newZ);
         if (stepUpY > y) {
             x = newX;
             z = newZ;
@@ -285,22 +308,18 @@ public class Player extends GameObject {
     /**
      * Try to step up over small obstacles
      */
-    private float tryStepUp(float targetX, float targetZ) {
-        // Test at different heights to find the highest point we can step up to
-        float bestY = y;
-        
+    private float tryStepUpWithRaycast(float targetX, float targetZ) {
+        // Simple step-up: try moving to target position at gradually higher heights
         for (float testHeight = 0.1f; testHeight <= MAX_STEP_HEIGHT; testHeight += 0.05f) {
             float testY = y + testHeight;
             
             // Check if we can move to the target position at this height
             if (!wouldCollide(targetX, testY, targetZ)) {
-                bestY = testY;
-            } else {
-                break; // Stop if we hit something at this height
+                return testY;
             }
         }
         
-        return bestY;
+        return y; // No step-up possible
     }
 
     /**
@@ -336,13 +355,25 @@ public class Player extends GameObject {
             return false;
         }
         
-        // Create temporary bounding box for collision check
-        BoundingBox tempBox = BoundingBox.fromCenterAndSize(newX, newY, newZ, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
-        boolean collision = CollisionManager.getInstance().checkCollision(tempBox);
-        
-
-        
-        return collision;
+        if (useCapsuleCollision) {
+            // Use capsule collision for smoother movement
+            CapsuleCollision tempCapsule = CapsuleCollision.fromCenterAndSize(newX, newY, newZ, CAPSULE_RADIUS, CAPSULE_HEIGHT);
+            return checkCapsuleCollision(tempCapsule);
+        } else {
+            // Use bounding box collision (legacy)
+            BoundingBox tempBox = BoundingBox.fromCenterAndSize(newX, newY, newZ, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
+            return CollisionManager.getInstance().checkCollision(tempBox);
+        }
+    }
+    
+    /**
+     * Check capsule collision with world objects (optimized)
+     */
+    private boolean checkCapsuleCollision(CapsuleCollision capsule) {
+        // Use the capsule's bounding box for collision detection
+        // This is much faster than complex capsule geometry checks
+        BoundingBox capsuleBox = capsule.getBoundingBox();
+        return CollisionManager.getInstance().checkCollision(capsuleBox);
     }
     
     /**
@@ -358,26 +389,30 @@ public class Player extends GameObject {
             return;
         }
         
-        float groundHeight = GROUND_LEVEL;
-        
-
-        
+        // Apply gravity
         velocity += gravity * deltaTime;
         velocity = Math.max(velocity, -MAX_VELOCITY);
         
+        // Calculate new Y position
         float newY = y + velocity * deltaTime;
-        float feetY = newY - (PLAYER_HEIGHT * 0.5f);
         
-        if (feetY <= groundHeight) {
-            y = groundHeight + (PLAYER_HEIGHT * 0.5f);
+        // Simple ground detection
+        float groundHeight = GROUND_LEVEL;
+        float capsuleBottom = newY - CAPSULE_HEIGHT / 2.0f;
+        
+        if (capsuleBottom <= groundHeight) {
+            // On ground
+            y = groundHeight + CAPSULE_HEIGHT / 2.0f;
             velocity = 0;
             isOnGround = true;
         } else {
+            // In air
             y = newY;
             isOnGround = false;
         }
         
-        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
+        // Update camera position
+        camera.setPosition(x, y + (CAPSULE_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
     @Override
@@ -412,6 +447,14 @@ public class Player extends GameObject {
     
     public BoundingBox getBoundingBox() {
         return boundingBox;
+    }
+    
+    public CapsuleCollision getCapsuleCollision() {
+        return capsuleCollision;
+    }
+    
+    public boolean isUsingCapsuleCollision() {
+        return useCapsuleCollision;
     }
     
     public boolean isNoClipMode() {

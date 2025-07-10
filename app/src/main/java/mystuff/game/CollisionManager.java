@@ -108,4 +108,11 @@ public class CollisionManager {
         
         return stats.toString();
     }
+    
+    /**
+     * Get all GLB geometry collisions for rendering
+     */
+    public List<GLBGeometryCollision> getGeometryCollisions() {
+        return geometryCollisions;
+    }
 } 
