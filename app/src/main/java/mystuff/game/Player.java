@@ -32,6 +32,12 @@ public class Player extends GameObject {
     private boolean wasSpacePressed = false;
     private static final float MAX_VELOCITY = 30.0f;
     
+    // Step-up system for handling stairs and small bumps
+    private static final float MAX_STEP_HEIGHT = 0.1f; // Maximum height to step up
+    private static final float STEP_UP_DISTANCE = 0.2f; // How far forward to test for step-up
+    private static final float MAX_SLOPE_ANGLE = 90.0f; // Maximum walkable slope angle
+    private static final float COLLISION_RESPONSE_FACTOR = 1.0f; // How much to slide along surfaces
+    
     // Collision
     private BoundingBox boundingBox;
     private World world; // Reference to world for collision checks
@@ -48,9 +54,9 @@ public class Player extends GameObject {
 
     // Player dimensions
     public static final float PLAYER_WIDTH = 0.5f;
-    public static final float PLAYER_HEIGHT = 1.0f;
+    public static final float PLAYER_HEIGHT = 0.5f;
     public static final float PLAYER_DEPTH = 0.5f;
-    private static final float CAMERA_HEIGHT_OFFSET = 1.4f;
+    private static final float CAMERA_HEIGHT_OFFSET = 1.0f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
@@ -233,24 +239,92 @@ public class Player extends GameObject {
         float finalMoveX = (moveX * rightX + moveZ * forwardX) * speed * deltaTime;
         float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * speed * deltaTime;
         
-        // Check collision before applying movement
-        float newX = x + finalMoveX;
-        float newZ = z + finalMoveZ;
+        // Apply movement with step-up system and collision response
+        applyMovementWithStepUp(finalMoveX, finalMoveZ);
+    }
+
+    /**
+     * Apply movement with step-up system for handling stairs and small bumps
+     */
+    private void applyMovementWithStepUp(float moveX, float moveZ) {
+        float newX = x + moveX;
+        float newZ = z + moveZ;
         
+        // First, try normal movement
         if (!wouldCollide(newX, y, newZ)) {
             x = newX;
             z = newZ;
-        } else {
-            // Try moving only in X direction
-            if (!wouldCollide(x + finalMoveX, y, z)) {
-                x += finalMoveX;
-            }
-            // Try moving only in Z direction
-            else if (!wouldCollide(x, y, z + finalMoveZ)) {
-                z += finalMoveZ;
-            }
-            // If both fail, don't move (full collision)
+            return;
         }
+        
+        // If normal movement fails, try step-up
+        float stepUpY = tryStepUp(newX, newZ);
+        if (stepUpY > y) {
+            x = newX;
+            z = newZ;
+            y = stepUpY;
+            return;
+        }
+        
+        // If step-up fails, try sliding along surfaces
+        float[] slideResult = trySliding(moveX, moveZ);
+        if (slideResult != null) {
+            x += slideResult[0];
+            z += slideResult[1];
+            return;
+        }
+        
+        // If all else fails, try moving in individual axes
+        if (!wouldCollide(x + moveX, y, z)) {
+            x += moveX;
+        } else if (!wouldCollide(x, y, z + moveZ)) {
+            z += moveZ;
+        }
+    }
+
+    /**
+     * Try to step up over small obstacles
+     */
+    private float tryStepUp(float targetX, float targetZ) {
+        // Test at different heights to find the highest point we can step up to
+        float bestY = y;
+        
+        for (float testHeight = 0.1f; testHeight <= MAX_STEP_HEIGHT; testHeight += 0.05f) {
+            float testY = y + testHeight;
+            
+            // Check if we can move to the target position at this height
+            if (!wouldCollide(targetX, testY, targetZ)) {
+                bestY = testY;
+            } else {
+                break; // Stop if we hit something at this height
+            }
+        }
+        
+        return bestY;
+    }
+
+    /**
+     * Try sliding along collision surfaces
+     */
+    private float[] trySliding(float moveX, float moveZ) {
+        // Try sliding along X axis
+        if (Math.abs(moveX) > 0.001f && !wouldCollide(x + moveX * COLLISION_RESPONSE_FACTOR, y, z)) {
+            return new float[]{moveX * COLLISION_RESPONSE_FACTOR, 0};
+        }
+        
+        // Try sliding along Z axis
+        if (Math.abs(moveZ) > 0.001f && !wouldCollide(x, y, z + moveZ * COLLISION_RESPONSE_FACTOR)) {
+            return new float[]{0, moveZ * COLLISION_RESPONSE_FACTOR};
+        }
+        
+        // Try diagonal sliding
+        float diagonalX = moveX * COLLISION_RESPONSE_FACTOR * 0.7f;
+        float diagonalZ = moveZ * COLLISION_RESPONSE_FACTOR * 0.7f;
+        if (!wouldCollide(x + diagonalX, y, z + diagonalZ)) {
+            return new float[]{diagonalX, diagonalZ};
+        }
+        
+        return null; // No sliding possible
     }
     
     /**
