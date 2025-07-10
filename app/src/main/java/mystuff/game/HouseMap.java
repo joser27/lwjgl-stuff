@@ -13,7 +13,7 @@ public class HouseMap extends GameObject {
     private static final float HOUSE_SCALE = 1f;
     private static GLBModelRenderer houseModel = null;
     private static boolean triedLoad = false;
-    private static String HOUSE_GLB = "models/Tacos.glb";
+    private static String HOUSE_GLB = "models/Abandoned_House.glb";
     
     // Geometry-based collision detection
     private GLBGeometryCollision geometryCollision;
