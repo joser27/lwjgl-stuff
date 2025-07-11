@@ -12,6 +12,11 @@ public class CollisionManager {
     
     // Geometry-based collision detection for GLB models
     private List<GLBGeometryCollision> geometryCollisions;
+    
+    // Simple ground plane collision for testing
+    private float groundLevel = 17.0f;
+    private boolean groundCollisionEnabled = true;
+    
     private static CollisionManager instance;
     
     private CollisionManager() {
@@ -66,7 +71,20 @@ public class CollisionManager {
      * Check collision with all registered collision systems
      */
     public boolean checkCollision(BoundingBox playerBox) {
+        // Check ground collision first
+        if (groundCollisionEnabled && checkGroundCollision(playerBox)) {
+            return true;
+        }
+        
+        // Check geometry collisions
         return checkGeometryCollision(playerBox);
+    }
+    
+    /**
+     * Check collision with ground plane
+     */
+    private boolean checkGroundCollision(BoundingBox playerBox) {
+        return playerBox.getMinY() <= groundLevel;
     }
     
     /**
@@ -75,6 +93,7 @@ public class CollisionManager {
     public String getDebugInfo() {
         StringBuilder info = new StringBuilder();
         info.append("CollisionManager Debug Info:\n");
+        info.append("  Ground collision: ").append(groundCollisionEnabled ? "ENABLED" : "DISABLED").append(" (Y=").append(groundLevel).append(")\n");
         info.append("  Geometry collisions: ").append(geometryCollisions.size()).append("\n");
         
         for (int i = 0; i < geometryCollisions.size(); i++) {
@@ -105,7 +124,26 @@ public class CollisionManager {
         StringBuilder stats = new StringBuilder();
         stats.append("CollisionManager: ").append(geometryCollisions.size()).append(" GLB models, ")
              .append(totalTriangles).append(" total triangles");
+        if (groundCollisionEnabled) {
+            stats.append(", ground collision at Y=").append(groundLevel);
+        }
         
         return stats.toString();
+    }
+    
+    /**
+     * Toggle ground collision for testing
+     */
+    public void toggleGroundCollision() {
+        groundCollisionEnabled = !groundCollisionEnabled;
+        DebugRenderer.getInstance().addMessage("Ground collision: " + (groundCollisionEnabled ? "ENABLED" : "DISABLED"), 3.0f);
+    }
+    
+    /**
+     * Set ground level
+     */
+    public void setGroundLevel(float level) {
+        groundLevel = level;
+        DebugRenderer.getInstance().addMessage("Ground level set to: " + level, 3.0f);
     }
 } 

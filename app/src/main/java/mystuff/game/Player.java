@@ -9,6 +9,7 @@ import mystuff.utils.TextureLoader;
 import mystuff.utils.Debug;
 import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
+import mystuff.utils.Shapes;
 
 public class Player extends GameObject {
     // Movement speeds
@@ -32,7 +33,16 @@ public class Player extends GameObject {
     private float jumpForce = 12.0f;
     private boolean wasSpacePressed = false;
     private static final float MAX_VELOCITY = 30.0f;
+    private static final float GROUND_CHECK_EPSILON = 0.02f; // Increased buffer
+    private float lastGroundY = 0.0f; // Track last stable ground position
     
+    // Step-up parameters
+    private static final float MAX_STEP_HEIGHT = 0.35f;
+    private static final float STEP_CHECK_DISTANCE = 0.05f;
+    private static final float STEP_SMOOTHING = 8.0f;
+    private float currentStepOffset = 0.0f;
+    private boolean isSteppingDown = false; // Track if we're in a step-down motion
+
     // Collision
     private BoundingBox boundingBox;
     private World world; // Reference to world for collision checks
@@ -49,10 +59,10 @@ public class Player extends GameObject {
     private PlayerRenderer renderer;
 
     // Player dimensions
-    public static final float PLAYER_WIDTH = 1.0f;
-    public static final float PLAYER_HEIGHT = 2.0f;
-    public static final float PLAYER_DEPTH = 1.0f;
-    private static final float CAMERA_HEIGHT_OFFSET = 0.4f;
+    public static final float PLAYER_WIDTH = 0.3f;
+    public static final float PLAYER_HEIGHT = 1.0f;
+    public static final float PLAYER_DEPTH = 0.3f;
+    private static final float CAMERA_HEIGHT_OFFSET = 1.0f;
 
     public Player(float x, float y, float z, Camera camera, World world) {
         super(x, y, z);
@@ -116,6 +126,12 @@ public class Player extends GameObject {
      * Updates the bounding box to match the player's position
      */
     private void updateBoundingBox() {
+        // Safety check - ensure we have valid coordinates
+        if (Float.isNaN(x) || Float.isNaN(y) || Float.isNaN(z)) {
+            DebugRenderer.getInstance().addError("Player position contains NaN values!", 5.0f);
+            x = 0; y = 0; z = 0;
+        }
+        
         boundingBox = BoundingBox.fromCenterAndSize(
             x, y, z, 
             PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
@@ -251,24 +267,158 @@ public class Player extends GameObject {
         float finalMoveX = (moveX * rightX + moveZ * forwardX) * speed * deltaTime;
         float finalMoveZ = (moveX * rightZ + moveZ * forwardZ) * speed * deltaTime;
         
-        // Check collision before applying movement
-        float newX = x + finalMoveX;
-        float newZ = z + finalMoveZ;
+        // Store original position
+        float originalX = x;
+        float originalY = y;
+        float originalZ = z;
         
-        if (!wouldCollide(newX, y, newZ)) {
-            x = newX;
-            z = newZ;
-        } else {
-            // Try moving only in X direction
-            if (!wouldCollide(x + finalMoveX, y, z)) {
-                x += finalMoveX;
+        // Try moving in both directions
+        x += finalMoveX;
+        z += finalMoveZ;
+        updateBoundingBox();
+        
+        if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+            // Collision occurred - try step up
+            if (tryStepUp(finalMoveX, finalMoveZ)) {
+                // Step up successful - update camera
+                camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
+                return;
             }
-            // Try moving only in Z direction
-            else if (!wouldCollide(x, y, z + finalMoveZ)) {
-                z += finalMoveZ;
+            
+            // Step up failed - try moving in X direction only
+            x = originalX + finalMoveX;
+            z = originalZ;
+            y = originalY;
+            updateBoundingBox();
+            
+            if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+                // X movement failed - try Z direction only
+                x = originalX;
+                z = originalZ + finalMoveZ;
+                updateBoundingBox();
+                
+                if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+                    // Both directions failed - revert to original position
+                    x = originalX;
+                    z = originalZ;
+                    updateBoundingBox();
+                }
             }
-            // If both fail, don't move (full collision)
         }
+        
+        // Smooth step down when walking off edges
+        if (isOnGround) {
+            tryStepDown();
+        }
+    }
+    
+    /**
+     * Attempts to step up over a small obstacle
+     */
+    private boolean tryStepUp(float moveX, float moveZ) {
+        if (!isOnGround) {
+            return false; // Only step up when on ground
+        }
+        
+        // Safety check - don't step up if we're already too high
+        if (y > lastGroundY + MAX_STEP_HEIGHT * 2) {
+            return false;
+        }
+        
+        // Try stepping up by increments
+        float stepIncrement = MAX_STEP_HEIGHT / 4;
+        for (float stepHeight = stepIncrement; stepHeight <= MAX_STEP_HEIGHT; stepHeight += stepIncrement) {
+            // Move up by step height
+            y += stepHeight;
+            updateBoundingBox();
+            
+            // Check if this position is valid
+            if (!CollisionManager.getInstance().checkCollision(boundingBox)) {
+                // Found a valid step up height
+                currentStepOffset = stepHeight;
+                
+                // Debug message
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addMessage(
+                        String.format("Step up successful: +%.2f at Y: %.3f", stepHeight, y), 1.0f);
+                }
+                
+                return true;
+            }
+            
+            // Step up didn't work - restore position
+            y -= stepHeight;
+            updateBoundingBox();
+        }
+        
+        // Debug message for failed step up
+        if (Debug.isDebugMode()) {
+            DebugRenderer.getInstance().addMessage(
+                String.format("Step up failed at Y: %.3f", y), 0.5f);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if we need to step down when walking off edges
+     */
+    private void tryStepDown() {
+        if (!isOnGround) {
+            return; // Only check when on ground
+        }
+        
+        // Check if there's ground directly below us
+        float originalY = y;
+        y -= GROUND_CHECK_EPSILON;
+        updateBoundingBox();
+        
+        if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+            // Still on ground, restore position
+            y = originalY;
+            updateBoundingBox();
+            return;
+        }
+        
+        // No ground directly below - look for ground within step range
+        float maxStepDown = MAX_STEP_HEIGHT;
+        float testY = y;
+        boolean foundGround = false;
+        
+        // Search downward for ground
+        while (testY > y - maxStepDown) {
+            testY -= GROUND_CHECK_EPSILON;
+            y = testY;
+            updateBoundingBox();
+            
+            if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+                // Found ground - position player on it
+                y = testY + GROUND_CHECK_EPSILON;
+                lastGroundY = y;
+                foundGround = true;
+                
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addMessage(
+                        String.format("Step down: %.2f at Y: %.3f", 
+                        originalY - y, y), 1.0f);
+                }
+                break;
+            }
+        }
+        
+        if (!foundGround) {
+            // No ground found within step range - we're falling
+            y = originalY;
+            isOnGround = false;
+            velocity = 0; // Start falling from current position
+            
+            if (Debug.isDebugMode()) {
+                DebugRenderer.getInstance().addMessage("Started falling", 1.0f);
+            }
+        }
+        
+        updateBoundingBox();
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
     
     /**
@@ -301,32 +451,112 @@ public class Player extends GameObject {
         if (noClipMode) {
             return;
         }
-        
-        float groundHeight = GROUND_LEVEL;
-        
 
+        // Store original position
+        float originalY = y;
+
+        // Apply gravity only if truly in air
+        if (!isOnGround) {
+            velocity += gravity * deltaTime;
+            velocity = Math.max(velocity, -MAX_VELOCITY);
+            y += velocity * deltaTime;
+        }
         
-        velocity += gravity * deltaTime;
-        velocity = Math.max(velocity, -MAX_VELOCITY);
+        // Update bounding box at new position
+        updateBoundingBox();
         
-        float newY = y + velocity * deltaTime;
-        float feetY = newY - (PLAYER_HEIGHT * 0.5f);
+        // Ground check
+        boolean wasOnGround = isOnGround;
+        checkGround();
         
-        if (feetY <= groundHeight) {
-            y = groundHeight + (PLAYER_HEIGHT * 0.5f);
-            velocity = 0;
+        // Debug visualization
+        if (Debug.isDebugMode()) {
+            if (isOnGround != wasOnGround) {
+                DebugRenderer.getInstance().addMessage(
+                    String.format("Ground state: %s -> %s at Y: %.3f", 
+                    wasOnGround, isOnGround, y), 0.5f);
+            }
+        }
+    }
+
+    /**
+     * Dedicated ground check method to centralize ground detection logic
+     */
+    private void checkGround() {
+        // Safety check - ensure we have valid collision manager
+        if (CollisionManager.getInstance() == null) {
+            DebugRenderer.getInstance().addError("CollisionManager is null!", 5.0f);
+            return;
+        }
+        
+        // Check directly below with epsilon
+        float originalY = y;
+        y -= GROUND_CHECK_EPSILON;
+        updateBoundingBox();
+        
+        if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+            // Found ground
+            y = originalY;
+            if (!isOnGround) {
+                lastGroundY = y;
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addMessage("Landed on ground", 1.0f);
+                }
+            }
             isOnGround = true;
+            velocity = 0;
         } else {
-            y = newY;
+            // No ground found - we're in the air
+            y = originalY;
             isOnGround = false;
         }
         
+        updateBoundingBox();
+        
+        // Update camera
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
     @Override
     public void render() {
         renderer.render(this, camera.getYaw(), camera.getPitch());
+        
+        // Render bounding box in debug mode
+        if (Debug.isDebugMode()) {
+            renderBoundingBox();
+        }
+    }
+    
+    /**
+     * Renders the player's bounding box as a wireframe for debugging
+     */
+    private void renderBoundingBox() {
+        // Save OpenGL state
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GL11.glPushMatrix();
+        
+        // Disable textures and lighting for wireframe
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_LIGHTING);
+        
+        // Set wireframe mode
+        GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+        
+        // Draw main bounding box in cyan
+        GL11.glColor4f(0.0f, 1.0f, 1.0f, 1.0f);
+        GL11.glLineWidth(2.0f);
+        GL11.glTranslatef(x, y, z);
+        Shapes.cuboid(PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH);
+        
+        // Draw ground check visualization in yellow
+        GL11.glColor4f(1.0f, 1.0f, 0.0f, 1.0f);
+        GL11.glLineWidth(1.0f);
+        GL11.glTranslatef(0, -GROUND_CHECK_EPSILON, 0);
+        Shapes.cuboid(PLAYER_WIDTH, 0.02f, PLAYER_DEPTH);
+        
+        // Restore OpenGL state
+        GL11.glPopMatrix();
+        GL11.glPopAttrib();
     }
 
     public void cleanup() {

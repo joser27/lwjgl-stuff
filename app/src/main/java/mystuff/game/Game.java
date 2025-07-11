@@ -93,7 +93,7 @@ public class Game implements IGameLogic {
             // Create player at a reasonable starting position on the ground
             float startX = 0;
             float startZ = 0;
-            float startY = groundLevel + 100.0f; // Start 1 unit above ground level
+            float startY = groundLevel + 1.0f; // Start 1 unit above ground level
             Player player = new Player(startX, startY, startZ, camera, null); // Pass null for world
             // world.setPlayer(player); // Commented out - no world
             entityManager.addEntity(player);
