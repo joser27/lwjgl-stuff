@@ -447,6 +447,97 @@ public class Player extends GameObject {
         return CollisionManager.getInstance().checkCollision(playerBox);
     }
     
+    /**
+     * Check for ceiling collisions when moving upward
+     */
+    private void checkCeilingCollision(float newY, float originalY) {
+        // Safety check - don't check if movement is too small
+        if (Math.abs(newY - originalY) < 0.001f) {
+            y = newY;
+            return;
+        }
+        
+        // Check the entire movement path BEFORE moving
+        float stepSize = 0.01f;
+        float safeY = originalY;
+        
+        // Find the highest safe position
+        for (float testY = originalY; testY <= newY; testY += stepSize) {
+            y = testY;
+            updateBoundingBox();
+            
+            if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+                // Found collision - stop at previous safe position
+                y = safeY;
+                velocity = 0;
+                isOnGround = false;
+                
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addMessage(
+                        String.format("Ceiling collision prevented at Y: %.3f", y), 1.0f);
+                }
+                break;
+            } else {
+                // This position is safe
+                safeY = testY;
+            }
+        }
+        
+        // If we made it through the loop without collision, move to target
+        if (safeY == newY) {
+            y = newY;
+        }
+        
+        updateBoundingBox();
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
+    }
+    
+    /**
+     * Check for floor collisions when moving downward
+     */
+    private void checkFloorCollision(float newY, float originalY) {
+        // Safety check - don't check if movement is too small
+        if (Math.abs(newY - originalY) < 0.001f) {
+            y = newY;
+            return;
+        }
+        
+        // Check the entire movement path BEFORE moving
+        float stepSize = 0.01f;
+        float safeY = originalY;
+        
+        // Find the lowest safe position
+        for (float testY = originalY; testY >= newY; testY -= stepSize) {
+            y = testY;
+            updateBoundingBox();
+            
+            if (CollisionManager.getInstance().checkCollision(boundingBox)) {
+                // Found collision - stop at previous safe position
+                y = safeY;
+                velocity = 0;
+                isOnGround = true;
+                lastGroundY = y;
+                
+                if (Debug.isDebugMode()) {
+                    DebugRenderer.getInstance().addMessage(
+                        String.format("Floor collision prevented at Y: %.3f", y), 1.0f);
+                }
+                break;
+            } else {
+                // This position is safe
+                safeY = testY;
+            }
+        }
+        
+        // If we made it through the loop without collision, move to target
+        if (safeY == newY) {
+            y = newY;
+        }
+        
+        updateBoundingBox();
+        camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
+    }
+
     private void updateHeightmapCollision(float deltaTime) {
         if (noClipMode) {
             return;
@@ -459,22 +550,45 @@ public class Player extends GameObject {
         if (!isOnGround) {
             velocity += gravity * deltaTime;
             velocity = Math.max(velocity, -MAX_VELOCITY);
-            y += velocity * deltaTime;
+            
+            // Calculate new Y position
+            float newY = y + velocity * deltaTime;
+            
+            // Limit maximum movement to prevent tunneling
+            float maxMovement = 1.0f; // Reduced from 2.0f for more precise collision
+            if (Math.abs(newY - y) > maxMovement) {
+                if (newY > y) {
+                    newY = y + maxMovement;
+                } else {
+                    newY = y - maxMovement;
+                }
+            }
+            
+            // Check for collisions along the movement path
+            if (velocity > 0) {
+                // Moving upward - check for ceiling collisions
+                checkCeilingCollision(newY, originalY);
+            } else {
+                // Moving downward - check for floor collisions
+                checkFloorCollision(newY, originalY);
+            }
         }
         
         // Update bounding box at new position
         updateBoundingBox();
         
-        // Ground check
-        boolean wasOnGround = isOnGround;
-        checkGround();
-        
-        // Debug visualization
-        if (Debug.isDebugMode()) {
-            if (isOnGround != wasOnGround) {
-                DebugRenderer.getInstance().addMessage(
-                    String.format("Ground state: %s -> %s at Y: %.3f", 
-                    wasOnGround, isOnGround, y), 0.5f);
+        // Ground check for when not moving
+        if (velocity == 0) {
+            boolean wasOnGround = isOnGround;
+            checkGround();
+            
+            // Debug visualization
+            if (Debug.isDebugMode()) {
+                if (isOnGround != wasOnGround) {
+                    DebugRenderer.getInstance().addMessage(
+                        String.format("Ground state: %s -> %s at Y: %.3f", 
+                        wasOnGround, isOnGround, y), 0.5f);
+                }
             }
         }
     }
