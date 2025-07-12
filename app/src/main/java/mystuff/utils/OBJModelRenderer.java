@@ -35,8 +35,8 @@ public class OBJModelRenderer {
         // Setup OpenGL rendering states
         setupRenderingStates();
         
-        // Setup lighting
-        setupLighting();
+        // Note: Lighting is now handled globally by LightingManager
+        // No need to call setupLighting() here
         
         // Enable texturing if available
         if (textureId != -1) {
@@ -104,10 +104,10 @@ public class OBJModelRenderer {
             glDisable(GL_TEXTURE_2D);
         }
         
-        // Restore OpenGL states
-        glDisable(GL_LIGHTING);
-        glDisable(GL_LIGHT0);
-        glDisable(GL_COLOR_MATERIAL);
+        // Note: Don't disable lighting here as it's managed globally
+        // glDisable(GL_LIGHTING);
+        // glDisable(GL_LIGHT0);
+        // glDisable(GL_COLOR_MATERIAL);
         glDisable(GL_POLYGON_OFFSET_FILL);
     }
     

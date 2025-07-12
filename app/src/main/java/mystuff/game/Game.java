@@ -11,6 +11,7 @@ import mystuff.utils.Debug;
 import mystuff.utils.DebugRenderer;
 import mystuff.utils.KeyboardManager;
 import mystuff.utils.FogRenderer;
+import mystuff.utils.LightingManager;
 
 /**
  * Main game class that implements the game logic interface
@@ -25,6 +26,9 @@ public class Game implements IGameLogic {
     
     // Entity management
     private EntityManager entityManager;
+    
+    // Lighting and atmosphere
+    private LightingManager lightingManager;
     
     // Game state
     private boolean wireframeMode = false;
@@ -104,8 +108,13 @@ public class Game implements IGameLogic {
             // Initialize font
             mystuff.utils.FontLoader.init("fonts/reflow-sans-demo/Reflow Sans DEMO.ttf");
             
+            // Initialize lighting system first
+            lightingManager = new LightingManager();
+            lightingManager.setLightingMode(LightingManager.LightingMode.DAY);
+            
             // Initialize fog system for horror atmosphere
             fogRenderer = new FogRenderer();
+            fogRenderer.setLightingManager(lightingManager); // Connect fog to lighting
             fogRenderer.setFogType(FogRenderer.FogType.NONE);
             
             // Set up mouse cursor
@@ -148,6 +157,17 @@ public class Game implements IGameLogic {
         // Fog type cycling for testing
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_T)) {
             cycleFogType();
+        }
+        
+        // Lighting mode cycling for testing
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_L)) {
+            lightingManager.cycleLightingMode();
+            DebugRenderer.getInstance().addMessage("Lighting mode: " + lightingManager.getCurrentMode(), 2.0f);
+            
+            // Update fog to match new lighting if fog is enabled
+            if (fogRenderer != null && fogRenderer.isFogEnabled()) {
+                fogRenderer.updateFogForLighting(); // Update fog colors to match new lighting
+            }
         }
         
         // No-clip mode toggle
@@ -256,14 +276,15 @@ public class Game implements IGameLogic {
                 return;
             }
             
-            // Clear buffers with fog-appropriate background color
+            // Clear buffers - use fog color if fog is enabled, otherwise use sky color
             if (fogRenderer != null && fogRenderer.isFogEnabled()) {
                 // Use fog color as background for seamless fog effect
                 float[] fogColor = fogRenderer.getFogColor();
                 GL11.glClearColor(fogColor[0], fogColor[1], fogColor[2], fogColor[3]);
             } else {
-                // Use sky blue when no fog
-                GL11.glClearColor(0.5f, 0.8f, 1.0f, 1.0f);
+                // Use lighting-appropriate sky color when no fog
+                float[] skyColor = lightingManager.getSkyColor();
+                GL11.glClearColor(skyColor[0], skyColor[1], skyColor[2], skyColor[3]);
             }
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
             
@@ -297,6 +318,9 @@ public class Game implements IGameLogic {
             if (fogRenderer != null) {
                 fogRenderer.applyFog();
             }
+            
+            // Apply lighting settings
+            lightingManager.applyLighting();
             
             // Set up modelview matrix
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
@@ -479,27 +503,33 @@ public class Game implements IGameLogic {
             // Game time
             renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
             
+            // Lighting information
+            if (lightingManager != null) {
+                renderText(String.format("Lighting: %s", lightingManager.getCurrentMode()), 10, 150);
+                renderText("Press L to cycle lighting modes", 10, 170);
+            }
+            
             // Fog information
             if (fogRenderer != null) {
-                renderText(String.format("Fog: %s", fogRenderer.getCurrentFogType()), 10, 150);
-                renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 170);
-                renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 190);
+                renderText(String.format("Fog: %s", fogRenderer.getCurrentFogType()), 10, 190);
+                renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 210);
+                renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 230);
             }
             
             // Mage animation info
             Mage currentMage = entityManager.getFirstEntityOfType(Mage.class);
             if (currentMage != null) {
-                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 210);
-                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 230);
-                renderText("Press M to start attack animation", 10, 250);
+                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 250);
+                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 270);
+                renderText("Press M to start attack animation", 10, 290);
             }
             
             // Beggar animation info
             Beggar currentBeggar = entityManager.getFirstEntityOfType(Beggar.class);
             if (currentBeggar != null) {
-                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 270);
-                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 290);
-                renderText("Press B to toggle walk animation", 10, 310);
+                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 310);
+                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 330);
+                renderText("Press B to toggle walk animation", 10, 350);
             }
         }
         

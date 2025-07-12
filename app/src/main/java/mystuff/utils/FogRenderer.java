@@ -19,6 +19,9 @@ public class FogRenderer {
     private float fogEnd = 30.0f;
     private float[] fogColor = {0.3f, 0.3f, 0.3f, 1.0f};
     
+    // Reference to lighting manager for coordinated fog colors
+    private LightingManager lightingManager = null;
+    
     // Dynamic fog properties
     private float fogIntensity = 1.0f;
     private float fogPulse = 0.0f;
@@ -34,6 +37,23 @@ public class FogRenderer {
     }
     
     /**
+     * Set the lighting manager for coordinated fog colors
+     */
+    public void setLightingManager(LightingManager manager) {
+        this.lightingManager = manager;
+    }
+    
+    /**
+     * Update fog colors to match current lighting (call when lighting changes)
+     */
+    public void updateFogForLighting() {
+        if (lightingManager != null && fogEnabled) {
+            fogColor = lightingManager.getFogColor();
+            updateFogParameters();
+        }
+    }
+    
+    /**
      * Set the fog type and configure it appropriately
      */
     public void setFogType(FogType type) {
@@ -45,6 +65,12 @@ public class FogRenderer {
      * Configure fog parameters based on the selected type
      */
     private void configureFogForType(FogType type) {
+        // Get lighting-appropriate fog color if lighting manager is available
+        float[] lightingFogColor = null;
+        if (lightingManager != null) {
+            lightingFogColor = lightingManager.getFogColor();
+        }
+        
         switch (type) {
             case NONE:
                 disableFog();
@@ -53,35 +79,35 @@ public class FogRenderer {
             case LIGHT_MIST:
                 fogStart = 15.0f;
                 fogEnd = 60.0f;
-                fogColor = new float[]{0.6f, 0.6f, 0.65f, 1.0f}; // More visible light mist
+                fogColor = lightingFogColor != null ? lightingFogColor : new float[]{0.6f, 0.6f, 0.65f, 1.0f};
                 enableFog();
                 break;
                 
             case DENSE_FOG:
                 fogStart = 5.0f;
                 fogEnd = 25.0f;
-                fogColor = new float[]{0.6f, 0.6f, 0.65f, 1.0f}; // Same color as light mist
+                fogColor = lightingFogColor != null ? lightingFogColor : new float[]{0.6f, 0.6f, 0.65f, 1.0f};
                 enableFog();
                 break;
                 
             case DARK_MIST:
                 fogStart = 8.0f;
                 fogEnd = 35.0f;
-                fogColor = new float[]{0.2f, 0.2f, 0.25f, 1.0f}; // Slightly brighter dark mist
+                fogColor = lightingFogColor != null ? lightingFogColor : new float[]{0.2f, 0.2f, 0.25f, 1.0f};
                 enableFog();
                 break;
                 
             case STORM_FOG:
                 fogStart = 3.0f;
                 fogEnd = 20.0f;
-                fogColor = new float[]{0.4f, 0.4f, 0.45f, 1.0f}; // More visible storm fog
+                fogColor = lightingFogColor != null ? lightingFogColor : new float[]{0.4f, 0.4f, 0.45f, 1.0f};
                 enableFog();
                 break;
                 
             case NIGHT_FOG:
                 fogStart = 2.0f;
                 fogEnd = 15.0f;
-                fogColor = new float[]{0.15f, 0.15f, 0.2f, 1.0f}; // More visible night fog
+                fogColor = lightingFogColor != null ? lightingFogColor : new float[]{0.15f, 0.15f, 0.2f, 1.0f};
                 enableFog();
                 break;
         }

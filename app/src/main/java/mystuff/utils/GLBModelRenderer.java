@@ -107,8 +107,8 @@ public class GLBModelRenderer {
         // Setup basic OpenGL rendering states
         setupBasicRenderingStates();
         
-        // Setup lighting
-        setupLighting();
+        // Note: Lighting is now handled globally by LightingManager
+        // No need to call setupLighting() here
         
         // Set default color to white
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -372,10 +372,10 @@ public class GLBModelRenderer {
         glDisable(GL_BLEND);
         glDisable(GL_ALPHA_TEST);
         
-        // Restore OpenGL states
-        glDisable(GL_LIGHTING);
-        glDisable(GL_LIGHT0);
-        glDisable(GL_COLOR_MATERIAL);
+        // Note: Don't disable lighting here as it's managed globally
+        // glDisable(GL_LIGHTING);
+        // glDisable(GL_LIGHT0);
+        // glDisable(GL_COLOR_MATERIAL);
         glDisable(GL_POLYGON_OFFSET_FILL);
     }
     
