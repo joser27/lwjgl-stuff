@@ -39,6 +39,7 @@ public class Player extends GameObject {
     private static final float MAX_STEP_HEIGHT = 0.35f;
     private static final float STEP_CHECK_DISTANCE = 0.05f;
     private float currentStepOffset = 0.0f;
+    private int dropCheckCounter = 0; // Counter for drop checking frequency
 
     // Collision
     private BoundingBox boundingBox;
@@ -288,9 +289,9 @@ public class Player extends GameObject {
             }
         }
         
-        // Smooth step down when walking off edges
+        // Check for small drops that should be stepped down smoothly
         if (isOnGround) {
-            tryStepDown();
+            checkForSmallDrop();
         }
     }
     
@@ -343,6 +344,65 @@ public class Player extends GameObject {
     }
     
     /**
+     * Check for small drops that should be stepped down smoothly
+     * This prevents the instant downward movement bug
+     */
+    private void checkForSmallDrop() {
+        if (!isOnGround) {
+            return;
+        }
+        
+        // Check more frequently but still avoid constant movement
+        dropCheckCounter++;
+        if (dropCheckCounter % 3 != 0) { // Check every 3 frames instead of 10
+            return;
+        }
+        
+        // Check if there's ground directly below us without moving the player
+        BoundingBox testBox = BoundingBox.fromCenterAndSize(
+            x, y - GROUND_CHECK_EPSILON, z, 
+            PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
+        );
+        
+        if (CollisionManager.getInstance().checkCollision(testBox)) {
+            // Still on ground, no action needed
+            return;
+        }
+        
+        // No ground directly below - check for small drops
+        float maxStepDown = MAX_STEP_HEIGHT * 0.4f; // Slightly larger step-down range for better responsiveness
+        boolean foundGround = false;
+        float groundY = y;
+        
+        // Search downward for ground within small step range
+        for (float testY = y - GROUND_CHECK_EPSILON; testY >= y - maxStepDown; testY -= GROUND_CHECK_EPSILON) {
+            BoundingBox dropTestBox = BoundingBox.fromCenterAndSize(
+                x, testY, z, 
+                PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
+            );
+            
+            if (CollisionManager.getInstance().checkCollision(dropTestBox)) {
+                // Found ground - position player on it smoothly
+                groundY = testY + GROUND_CHECK_EPSILON;
+                foundGround = true;
+                break;
+            }
+        }
+        
+        if (foundGround) {
+            // Smooth step down to found ground
+            y = groundY;
+            lastGroundY = y;
+            updateBoundingBox();
+            camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
+        } else {
+            // No ground found within small step range - let gravity handle the fall naturally
+            isOnGround = false;
+            // Don't reset velocity - let gravity build up naturally
+        }
+    }
+    
+    /**
      * Check if we need to step down when walking off edges
      */
     private void tryStepDown() {
@@ -362,19 +422,20 @@ public class Player extends GameObject {
             return;
         }
         
-        // No ground directly below - look for ground within step range
-        float maxStepDown = MAX_STEP_HEIGHT;
+        // No ground directly below - check if we should start falling naturally
+        // Only step down for small drops, let gravity handle larger falls
+        float maxStepDown = MAX_STEP_HEIGHT * 0.5f; // Reduced step-down range
         float testY = y;
         boolean foundGround = false;
         
-        // Search downward for ground
+        // Search downward for ground within step range
         while (testY > y - maxStepDown) {
             testY -= GROUND_CHECK_EPSILON;
             y = testY;
             updateBoundingBox();
             
             if (CollisionManager.getInstance().checkCollision(boundingBox)) {
-                // Found ground - position player on it
+                // Found ground - position player on it smoothly
                 y = testY + GROUND_CHECK_EPSILON;
                 lastGroundY = y;
                 foundGround = true;
@@ -383,10 +444,10 @@ public class Player extends GameObject {
         }
         
         if (!foundGround) {
-            // No ground found within step range - we're falling
+            // No ground found within step range - let gravity handle the fall
             y = originalY;
             isOnGround = false;
-            velocity = 0;
+            // Don't reset velocity to 0 - let gravity build up naturally
         }
         
         updateBoundingBox();
@@ -538,13 +599,14 @@ public class Player extends GameObject {
             return;
         }
         
-        float originalY = y;
-        y -= GROUND_CHECK_EPSILON;
-        updateBoundingBox();
+        // Check if there's ground slightly below us (but don't move the player)
+        BoundingBox groundCheckBox = BoundingBox.fromCenterAndSize(
+            x, y - GROUND_CHECK_EPSILON, z, 
+            PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
+        );
         
-        if (CollisionManager.getInstance().checkCollision(boundingBox)) {
-            // Found ground
-            y = originalY;
+        if (CollisionManager.getInstance().checkCollision(groundCheckBox)) {
+            // Found ground below us
             if (!isOnGround) {
                 lastGroundY = y;
             }
@@ -552,11 +614,9 @@ public class Player extends GameObject {
             velocity = 0;
         } else {
             // No ground found - we're in the air
-            y = originalY;
             isOnGround = false;
         }
         
-        updateBoundingBox();
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
