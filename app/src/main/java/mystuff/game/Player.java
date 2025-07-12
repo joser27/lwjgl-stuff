@@ -28,20 +28,17 @@ public class Player extends GameObject {
     // Physics
     private float velocity = 0.0f;
     private float gravity = -25.0f;
-    private static final float GROUND_LEVEL = 17.0f;
     private boolean isOnGround = false;
     private float jumpForce = 12.0f;
     private boolean wasSpacePressed = false;
     private static final float MAX_VELOCITY = 30.0f;
-    private static final float GROUND_CHECK_EPSILON = 0.02f; // Increased buffer
-    private float lastGroundY = 0.0f; // Track last stable ground position
+    private static final float GROUND_CHECK_EPSILON = 0.02f;
+    private float lastGroundY = 0.0f;
     
     // Step-up parameters
     private static final float MAX_STEP_HEIGHT = 0.35f;
     private static final float STEP_CHECK_DISTANCE = 0.05f;
-    private static final float STEP_SMOOTHING = 8.0f;
     private float currentStepOffset = 0.0f;
-    private boolean isSteppingDown = false; // Track if we're in a step-down motion
 
     // Collision
     private BoundingBox boundingBox;
@@ -99,19 +96,6 @@ public class Player extends GameObject {
             Debug.togglePlayerInfo();
         }
         
-        // Temporary collision toggle for testing
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_C)) {
-            collisionEnabled = !collisionEnabled;
-            DebugRenderer.getInstance().addMessage("Collision detection: " + (collisionEnabled ? "ENABLED" : "DISABLED"), 3.0f);
-        }
-        
-        // Show detailed collision debug info
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_V)) {
-            DebugRenderer.getInstance().addMessage("=== DETAILED COLLISION DEBUG INFO ===", 5.0f);
-            DebugRenderer.getInstance().addMessage(CollisionManager.getInstance().getDebugInfo(), 5.0f);
-            DebugRenderer.getInstance().addMessage("=== END COLLISION DEBUG INFO ===", 5.0f);
-        }
-
         handleKeyboardInput(window, deltaTime);
         updateBoundingBox();
         
@@ -126,9 +110,7 @@ public class Player extends GameObject {
      * Updates the bounding box to match the player's position
      */
     private void updateBoundingBox() {
-        // Safety check - ensure we have valid coordinates
         if (Float.isNaN(x) || Float.isNaN(y) || Float.isNaN(z)) {
-            DebugRenderer.getInstance().addError("Player position contains NaN values!", 5.0f);
             x = 0; y = 0; z = 0;
         }
         
@@ -273,7 +255,7 @@ public class Player extends GameObject {
         float originalZ = z;
         
         // Try moving in both directions
-        x += finalMoveX;
+                x += finalMoveX;
         z += finalMoveZ;
         updateBoundingBox();
         
@@ -365,7 +347,7 @@ public class Player extends GameObject {
      */
     private void tryStepDown() {
         if (!isOnGround) {
-            return; // Only check when on ground
+            return;
         }
         
         // Check if there's ground directly below us
@@ -396,12 +378,6 @@ public class Player extends GameObject {
                 y = testY + GROUND_CHECK_EPSILON;
                 lastGroundY = y;
                 foundGround = true;
-                
-                if (Debug.isDebugMode()) {
-                    DebugRenderer.getInstance().addMessage(
-                        String.format("Step down: %.2f at Y: %.3f", 
-                        originalY - y, y), 1.0f);
-                }
                 break;
             }
         }
@@ -410,11 +386,7 @@ public class Player extends GameObject {
             // No ground found within step range - we're falling
             y = originalY;
             isOnGround = false;
-            velocity = 0; // Start falling from current position
-            
-            if (Debug.isDebugMode()) {
-                DebugRenderer.getInstance().addMessage("Started falling", 1.0f);
-            }
+            velocity = 0;
         }
         
         updateBoundingBox();
@@ -451,13 +423,11 @@ public class Player extends GameObject {
      * Check for ceiling collisions when moving upward
      */
     private void checkCeilingCollision(float newY, float originalY) {
-        // Safety check - don't check if movement is too small
         if (Math.abs(newY - originalY) < 0.001f) {
             y = newY;
             return;
         }
         
-        // Check the entire movement path BEFORE moving
         float stepSize = 0.01f;
         float safeY = originalY;
         
@@ -471,14 +441,8 @@ public class Player extends GameObject {
                 y = safeY;
                 velocity = 0;
                 isOnGround = false;
-                
-                if (Debug.isDebugMode()) {
-                    DebugRenderer.getInstance().addMessage(
-                        String.format("Ceiling collision prevented at Y: %.3f", y), 1.0f);
-                }
                 break;
             } else {
-                // This position is safe
                 safeY = testY;
             }
         }
@@ -496,13 +460,11 @@ public class Player extends GameObject {
      * Check for floor collisions when moving downward
      */
     private void checkFloorCollision(float newY, float originalY) {
-        // Safety check - don't check if movement is too small
         if (Math.abs(newY - originalY) < 0.001f) {
             y = newY;
             return;
         }
         
-        // Check the entire movement path BEFORE moving
         float stepSize = 0.01f;
         float safeY = originalY;
         
@@ -517,14 +479,8 @@ public class Player extends GameObject {
                 velocity = 0;
                 isOnGround = true;
                 lastGroundY = y;
-                
-                if (Debug.isDebugMode()) {
-                    DebugRenderer.getInstance().addMessage(
-                        String.format("Floor collision prevented at Y: %.3f", y), 1.0f);
-                }
                 break;
             } else {
-                // This position is safe
                 safeY = testY;
             }
         }
@@ -537,73 +493,51 @@ public class Player extends GameObject {
         updateBoundingBox();
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
-
+    
     private void updateHeightmapCollision(float deltaTime) {
         if (noClipMode) {
             return;
         }
 
-        // Store original position
         float originalY = y;
 
-        // Apply gravity only if truly in air
+        // Apply gravity only if in air
         if (!isOnGround) {
             velocity += gravity * deltaTime;
             velocity = Math.max(velocity, -MAX_VELOCITY);
             
-            // Calculate new Y position
             float newY = y + velocity * deltaTime;
             
             // Limit maximum movement to prevent tunneling
-            float maxMovement = 1.0f; // Reduced from 2.0f for more precise collision
+            float maxMovement = 1.0f;
             if (Math.abs(newY - y) > maxMovement) {
-                if (newY > y) {
-                    newY = y + maxMovement;
-                } else {
-                    newY = y - maxMovement;
-                }
+                newY = newY > y ? y + maxMovement : y - maxMovement;
             }
             
             // Check for collisions along the movement path
             if (velocity > 0) {
-                // Moving upward - check for ceiling collisions
                 checkCeilingCollision(newY, originalY);
             } else {
-                // Moving downward - check for floor collisions
                 checkFloorCollision(newY, originalY);
             }
         }
         
-        // Update bounding box at new position
         updateBoundingBox();
         
         // Ground check for when not moving
         if (velocity == 0) {
-            boolean wasOnGround = isOnGround;
             checkGround();
-            
-            // Debug visualization
-            if (Debug.isDebugMode()) {
-                if (isOnGround != wasOnGround) {
-                    DebugRenderer.getInstance().addMessage(
-                        String.format("Ground state: %s -> %s at Y: %.3f", 
-                        wasOnGround, isOnGround, y), 0.5f);
-                }
-            }
         }
     }
-
+    
     /**
-     * Dedicated ground check method to centralize ground detection logic
+     * Dedicated ground check method
      */
     private void checkGround() {
-        // Safety check - ensure we have valid collision manager
         if (CollisionManager.getInstance() == null) {
-            DebugRenderer.getInstance().addError("CollisionManager is null!", 5.0f);
             return;
         }
         
-        // Check directly below with epsilon
         float originalY = y;
         y -= GROUND_CHECK_EPSILON;
         updateBoundingBox();
@@ -613,9 +547,6 @@ public class Player extends GameObject {
             y = originalY;
             if (!isOnGround) {
                 lastGroundY = y;
-                if (Debug.isDebugMode()) {
-                    DebugRenderer.getInstance().addMessage("Landed on ground", 1.0f);
-                }
             }
             isOnGround = true;
             velocity = 0;
@@ -626,8 +557,6 @@ public class Player extends GameObject {
         }
         
         updateBoundingBox();
-        
-        // Update camera
         camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
     }
 
