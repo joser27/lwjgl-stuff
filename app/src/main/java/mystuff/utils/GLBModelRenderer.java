@@ -105,10 +105,7 @@ public class GLBModelRenderer {
         
         // Setup basic OpenGL rendering states
         setupBasicRenderingStates();
-        
-        // Note: Lighting is now handled globally by LightingManager
-        // No need to call setupLighting() here
-        
+
         // Set default color to white
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         

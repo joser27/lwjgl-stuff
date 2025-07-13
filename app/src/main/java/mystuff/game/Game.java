@@ -17,6 +17,7 @@ import mystuff.utils.LightingManager;
  * Main game class that implements the game logic interface
  */
 public class Game implements IGameLogic {
+    private SceneManager sceneManager = SceneManager.getInstance();
     // Core components
     private Camera camera;
     // private World world; // Commented out - no terrain
@@ -44,7 +45,7 @@ public class Game implements IGameLogic {
         try {
             // Don't create capabilities again - they were created in Window.init
             
-            DebugRenderer.getInstance().addMessage("Initializing OpenGL for Minecraft-like rendering...", 3.0f);
+            DebugRenderer.getInstance().addMessage("Initializing OpenGL for Taco Stand rendering...", 3.0f);
             
             // Initialize OpenGL state
             GL11.glEnable(GL11.GL_TEXTURE_2D);
@@ -144,10 +145,15 @@ public class Game implements IGameLogic {
     public void input(Window window) {
         KeyboardManager.update(window.getWindowHandle());
         
-        // Game exit
-        if (KeyboardManager.isKeyPressed(GLFW.GLFW_KEY_ESCAPE)) {
-            GLFW.glfwSetWindowShouldClose(window.getWindowHandle(), true);
+        // Handle scene-specific input first
+        sceneManager.handleInput(window);
+        
+        // Only handle game-specific input if we're in the playing scene
+        if (sceneManager.getCurrentScene() != Scene.PLAYING) {
+            return;
         }
+        
+        // Note: Escape key is handled by SceneManager for pause functionality
         
         // Toggle wireframe mode
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F)) {
@@ -237,6 +243,14 @@ public class Game implements IGameLogic {
 
     @Override
     public void update(float interval) {
+        // Update scene manager first
+        sceneManager.update(interval);
+        
+        // Only update game logic if we're in the playing scene
+        if (sceneManager.getCurrentScene() != Scene.PLAYING) {
+            return;
+        }
+        
         // Update game time
         gameTime += interval;
         
@@ -273,6 +287,13 @@ public class Game implements IGameLogic {
             // Ensure we have a valid OpenGL context
             if (!org.lwjgl.opengl.GL.getCapabilities().OpenGL11) {
                 DebugRenderer.getInstance().addError("OpenGL 1.1 capabilities are not available. Skipping render cycle.", 5.0f);
+                return;
+            }
+            
+            // Handle scene-specific rendering first
+            if (sceneManager.getCurrentScene() != Scene.PLAYING) {
+                // For non-playing scenes, just render the scene UI
+                sceneManager.render(window);
                 return;
             }
             
@@ -369,6 +390,9 @@ public class Game implements IGameLogic {
             
             // Render UI
             renderUI(window);
+            
+            // Render scene overlays (pause menu, etc.)
+            sceneManager.render(window);
             
             // Always reset polygon mode after rendering
             GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
@@ -503,33 +527,36 @@ public class Game implements IGameLogic {
             // Game time
             renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
             
+            // Current scene
+            renderText(String.format("Scene: %s", sceneManager.getCurrentScene().getDisplayName()), 10, 150);
+            
             // Lighting information
             if (lightingManager != null) {
-                renderText(String.format("Lighting: %s", lightingManager.getCurrentMode()), 10, 150);
-                renderText("Press L to cycle lighting modes", 10, 170);
+                renderText(String.format("Lighting: %s", lightingManager.getCurrentMode()), 10, 170);
+                renderText("Press L to cycle lighting modes", 10, 190);
             }
             
             // Fog information
             if (fogRenderer != null) {
-                renderText(String.format("Fog: %s", fogRenderer.getCurrentFogType()), 10, 190);
-                renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 210);
-                renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 230);
+                renderText(String.format("Fog: %s", fogRenderer.getCurrentFogType()), 10, 210);
+                renderText(String.format("Visibility: %.1fm", fogRenderer.getVisibilityRange()), 10, 230);
+                renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 250);
             }
             
             // Mage animation info
             Mage currentMage = entityManager.getFirstEntityOfType(Mage.class);
             if (currentMage != null) {
-                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 250);
-                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 270);
-                renderText("Press M to start attack animation", 10, 290);
+                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 270);
+                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 290);
+                renderText("Press M to start attack animation", 10, 310);
             }
             
             // Beggar animation info
             Beggar currentBeggar = entityManager.getFirstEntityOfType(Beggar.class);
             if (currentBeggar != null) {
-                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 310);
-                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 330);
-                renderText("Press B to toggle walk animation", 10, 350);
+                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 330);
+                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 350);
+                renderText("Press B to toggle walk animation", 10, 370);
             }
         }
         
@@ -598,7 +625,7 @@ public class Game implements IGameLogic {
 
     public static void main(String[] args) {
         Game game = new Game();
-        GameEngine engine = new GameEngine("Minecraft Clone", 1920, 1080, game, 144); // Higher target FPS
+        GameEngine engine = new GameEngine("Taco Stand", 1920, 1080, game, 144);
         
         // Enable high-performance options
         engine.setHighPrecisionThread(true);
@@ -610,6 +637,34 @@ public class Game implements IGameLogic {
 
     public void setTimer(Timer timer) {
         this.timer = timer;
+    }
+    
+    /**
+     * Start the game from menu
+     */
+    public void startGame() {
+        sceneManager.transitionToScene(Scene.PLAYING);
+    }
+    
+    /**
+     * Pause the game
+     */
+    public void pauseGame() {
+        sceneManager.pushScene(Scene.PAUSED);
+    }
+    
+    /**
+     * Resume the game
+     */
+    public void resumeGame() {
+        sceneManager.popScene();
+    }
+    
+    /**
+     * Return to main menu
+     */
+    public void returnToMenu() {
+        sceneManager.transitionToScene(Scene.MENU);
     }
     
     /**
