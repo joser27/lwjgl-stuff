@@ -253,6 +253,13 @@ public class TextureMatcher {
      * Get material information including type and rendering properties
      */
     public static MaterialInfo getMaterialInfo(String materialName) {
+        return getMaterialInfo(materialName, null, false);
+    }
+    
+    /**
+     * Get material information including type and rendering properties with GLB material data
+     */
+    public static MaterialInfo getMaterialInfo(String materialName, float[] baseColorFactor, boolean hasTexture) {
         if (!cacheInitialized) {
             initializeTextureCache();
         }
@@ -262,6 +269,28 @@ public class TextureMatcher {
         }
         
         String cleanMaterialName = materialName.toLowerCase().trim();
+        
+        // If material has no texture but has base color factor, use the color
+        if (!hasTexture && baseColorFactor != null) {
+            // Check if it's a special material type first
+            MaterialType detectedType = detectMaterialType(cleanMaterialName);
+            
+            switch (detectedType) {
+                case GLASS:
+                    return new MaterialInfo(null, MaterialType.GLASS, baseColorFactor, baseColorFactor[3]);
+                case MIRROR:
+                    return new MaterialInfo(null, MaterialType.MIRROR, baseColorFactor, 1.0f);
+                case EMISSIVE:
+                    return new MaterialInfo(null, MaterialType.EMISSIVE, baseColorFactor, 1.0f);
+                default:
+                    // Use the base color factor as a solid color, with fallback for furniture
+                    float[] finalColor = baseColorFactor;
+                    if (detectedType == MaterialType.COLOR && isFurnitureMaterial(cleanMaterialName)) {
+                        finalColor = getFurnitureColor(cleanMaterialName, baseColorFactor);
+                    }
+                    return new MaterialInfo(null, MaterialType.COLOR, finalColor, finalColor[3]);
+            }
+        }
         
         // Detect special material types
         MaterialType detectedType = detectMaterialType(cleanMaterialName);
@@ -301,7 +330,8 @@ public class TextureMatcher {
         
         // Mirror materials
         if (materialName.contains("mirror") || materialName.contains("reflection") ||
-            materialName.contains("chrome") || materialName.contains("shiny")) {
+            materialName.contains("chrome") || materialName.contains("shiny") ||
+            materialName.contains("metal")) {
             return MaterialType.MIRROR;
         }
         
@@ -312,12 +342,16 @@ public class TextureMatcher {
             return MaterialType.EMISSIVE;
         }
         
-        // Color materials (solid colors)
+        // Color materials (solid colors) - including furniture materials
         if (materialName.equals("black") || materialName.equals("white") || 
             materialName.equals("red") || materialName.equals("blue") || 
             materialName.equals("green") || materialName.equals("yellow") ||
             materialName.equals("colorwhite") || materialName.equals("color_g") ||
-            materialName.contains("color") && !materialName.contains("_")) {
+            materialName.contains("color") && !materialName.contains("_") ||
+            materialName.contains("chair") || materialName.contains("wood") ||
+            materialName.contains("plastic") || materialName.contains("fabric") ||
+            materialName.contains("leather") || materialName.contains("seat") ||
+            materialName.contains("table") || materialName.contains("furniture")) {
             return MaterialType.COLOR;
         }
         
@@ -406,7 +440,6 @@ public class TextureMatcher {
         // 1. Try exact match first
         if (textureCache.containsKey(materialName)) {
             String match = textureCache.get(materialName);
-            System.out.println("  Exact match: \"" + materialName + "\" -> \"" + match + "\"");
             return match;
         }
         
@@ -426,11 +459,47 @@ public class TextureMatcher {
         }
         
         if (bestMatch != null) {
-            System.out.println("  Fuzzy match: \"" + materialName + "\" -> \"" + bestMatch + "\" (score: " + bestScore + ")");
             return bestMatch;
         }
         
-        System.out.println("  No match found for: \"" + materialName + "\", using fallback");
         return getFallbackTexture();
+    }
+    
+    /**
+     * Check if material is furniture-related
+     */
+    private static boolean isFurnitureMaterial(String materialName) {
+        return materialName.contains("chair") || materialName.contains("table") || 
+               materialName.contains("seat") || materialName.contains("furniture") ||
+               materialName.contains("wood") || materialName.contains("plastic") ||
+               materialName.contains("fabric") || materialName.contains("leather");
+    }
+    
+    /**
+     * Get appropriate color for furniture materials
+     */
+    private static float[] getFurnitureColor(String materialName, float[] baseColor) {
+        // If base color is too dark, assign a reasonable furniture color
+        if (baseColor[0] < 0.3f && baseColor[1] < 0.3f && baseColor[2] < 0.3f) {
+            if (materialName.contains("wood")) {
+                return new float[]{0.6f, 0.4f, 0.2f, 1.0f}; // Brown wood
+            } else if (materialName.contains("plastic")) {
+                return new float[]{0.8f, 0.8f, 0.8f, 1.0f}; // Light gray plastic
+            } else if (materialName.contains("fabric") || materialName.contains("leather")) {
+                return new float[]{0.7f, 0.5f, 0.3f, 1.0f}; // Tan fabric/leather
+            } else if (materialName.contains("chair")) {
+                return new float[]{0.5f, 0.3f, 0.1f, 1.0f}; // Dark brown chair
+            } else {
+                return new float[]{0.6f, 0.6f, 0.6f, 1.0f}; // Medium gray
+            }
+        }
+        
+        // If base color is reasonable, use it but ensure minimum brightness
+        return new float[]{
+            Math.max(0.4f, baseColor[0]),
+            Math.max(0.4f, baseColor[1]),
+            Math.max(0.4f, baseColor[2]),
+            Math.max(0.9f, baseColor[3])
+        };
     }
 } 

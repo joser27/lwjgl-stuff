@@ -62,8 +62,9 @@ public class GLBModelRenderer {
         for (int i = 0; i < modelData.materials.length; i++) {
             MaterialInfo material = modelData.materials[i];
             
-            // Get enhanced material information
-            TextureMatcher.MaterialInfo matInfo = TextureMatcher.getMaterialInfo(material.cleanName);
+            // Get enhanced material information with GLB material data
+            TextureMatcher.MaterialInfo matInfo = TextureMatcher.getMaterialInfo(
+                material.cleanName, material.baseColorFactor, material.hasTexture);
             materialInfos[i] = matInfo;
             
             // Load texture if material uses one
@@ -87,9 +88,7 @@ public class GLBModelRenderer {
                 specialCount++;
             }
             
-            // Log material type for debugging
-            System.out.println("  Material " + i + ": \"" + material.name + "\" -> " + 
-                             matInfo.type + " (texture: " + (matInfo.texturePath != null ? "YES" : "NO") + ")");
+
         }
         
         System.out.println("Material loading complete:");
@@ -112,10 +111,6 @@ public class GLBModelRenderer {
         
         // Set default color to white
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        
-        // Disable face culling for complex GLB models (furniture, interiors)
-        // This prevents missing faces on chairs, ovens, and other complex geometry
-        glDisable(GL_CULL_FACE);
         
         // Render by meshes to support multiple material types
         if (modelData.meshes != null && modelData.meshes.length > 0) {
@@ -252,7 +247,21 @@ public class GLBModelRenderer {
     private void setupColorRendering(TextureMatcher.MaterialInfo matInfo) {
         // Disable texturing, use solid color
         glDisable(GL_TEXTURE_2D);
-        glColor4f(matInfo.color[0], matInfo.color[1], matInfo.color[2], matInfo.alpha);
+        
+        // Ensure minimum brightness for visibility
+        float r = Math.max(0.3f, matInfo.color[0]); // Higher minimum for furniture
+        float g = Math.max(0.3f, matInfo.color[1]);
+        float b = Math.max(0.3f, matInfo.color[2]);
+        float a = Math.max(0.9f, matInfo.alpha); // Higher alpha for furniture visibility
+        
+        // If the color is still too dark, brighten it further
+        if (r < 0.5f && g < 0.5f && b < 0.5f) {
+            r = Math.min(1.0f, r * 2.0f);
+            g = Math.min(1.0f, g * 2.0f);
+            b = Math.min(1.0f, b * 2.0f);
+        }
+        
+        glColor4f(r, g, b, a);
     }
     
     private void setupEmissiveRendering(TextureMatcher.MaterialInfo matInfo, int materialIndex) {
@@ -303,7 +312,9 @@ public class GLBModelRenderer {
     
     private TextureMatcher.MaterialInfo getMaterialInfoForMesh(int materialIndex) {
         if (materialInfos == null || materialIndex < 0 || materialIndex >= materialInfos.length) {
-            return new TextureMatcher.MaterialInfo("textures/missing_texture.jpg");
+            // Fallback: create a visible material with bright color
+            return new TextureMatcher.MaterialInfo(null, TextureMatcher.MaterialType.COLOR, 
+                new float[]{0.8f, 0.8f, 0.8f, 1.0f}, 1.0f);
         }
         return materialInfos[materialIndex];
     }
@@ -333,10 +344,9 @@ public class GLBModelRenderer {
         // Keep depth writing enabled for proper depth sorting
         glDepthMask(true);
         
-        // Enable face culling with proper winding
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glFrontFace(GL_CCW);
+        // DISABLE face culling for complex GLB models (furniture, interiors)
+        // This prevents missing faces on chairs, ovens, and other complex geometry
+        glDisable(GL_CULL_FACE);
         
         // Use smooth shading for better appearance
         glShadeModel(GL_SMOOTH);

@@ -27,10 +27,41 @@ public class GLBLoader {
     public static class MaterialInfo {
         public String name;
         public String cleanName; // Cleaned version for texture matching
+        public float[] baseColorFactor; // Base color factor from GLB material (RGBA)
+        public boolean hasTexture; // Whether this material has a texture
+        public float metallicFactor; // Metallic factor for PBR materials
+        public float roughnessFactor; // Roughness factor for PBR materials
+        public float alphaCutoff; // Alpha cutoff for transparency
         
         public MaterialInfo(String name) {
             this.name = name;
             this.cleanName = cleanMaterialName(name);
+            this.baseColorFactor = new float[]{1.0f, 1.0f, 1.0f, 1.0f}; // Default white
+            this.hasTexture = false;
+            this.metallicFactor = 0.0f;
+            this.roughnessFactor = 1.0f;
+            this.alphaCutoff = 0.5f;
+        }
+        
+        public MaterialInfo(String name, float[] baseColorFactor, boolean hasTexture) {
+            this.name = name;
+            this.cleanName = cleanMaterialName(name);
+            this.baseColorFactor = baseColorFactor != null ? baseColorFactor : new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+            this.hasTexture = hasTexture;
+            this.metallicFactor = 0.0f;
+            this.roughnessFactor = 1.0f;
+            this.alphaCutoff = 0.5f;
+        }
+        
+        public MaterialInfo(String name, float[] baseColorFactor, boolean hasTexture, 
+                          float metallicFactor, float roughnessFactor, float alphaCutoff) {
+            this.name = name;
+            this.cleanName = cleanMaterialName(name);
+            this.baseColorFactor = baseColorFactor != null ? baseColorFactor : new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+            this.hasTexture = hasTexture;
+            this.metallicFactor = metallicFactor;
+            this.roughnessFactor = roughnessFactor;
+            this.alphaCutoff = alphaCutoff;
         }
         
         // Clean material name for better texture matching
@@ -274,11 +305,134 @@ public class GLBLoader {
             }
             nameString.free();
             
-            materials[i] = new MaterialInfo(materialName);
-            System.out.println("  Material " + i + ": \"" + materialName + "\" -> \"" + materials[i].cleanName + "\"");
+            // Extract base color factor (diffuse color)
+            float[] baseColorFactor = extractBaseColorFactor(aiMaterial);
+            
+            // Check if material has textures
+            boolean hasTexture = checkMaterialHasTexture(aiMaterial);
+            
+            // Extract additional material properties
+            float metallicFactor = extractMetallicFactor(aiMaterial);
+            float roughnessFactor = extractRoughnessFactor(aiMaterial);
+            float alphaCutoff = extractAlphaCutoff(aiMaterial);
+            
+            materials[i] = new MaterialInfo(materialName, baseColorFactor, hasTexture, 
+                                          metallicFactor, roughnessFactor, alphaCutoff);
         }
         
         return materials;
+    }
+    
+    private static float[] extractBaseColorFactor(AIMaterial aiMaterial) {
+        float[] color = new float[4];
+        int[] pMax = new int[1];
+        
+        // Try to get base color factor (diffuse color)
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_COLOR_DIFFUSE, 0, 0, color, pMax) == aiReturn_SUCCESS) {
+            return normalizeColor(color);
+        }
+        
+        // Fallback: try to get base color factor from PBR properties
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_BASE_COLOR, 0, 0, color, pMax) == aiReturn_SUCCESS) {
+            return normalizeColor(color);
+        }
+        
+        // Try to get ambient color as fallback
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_COLOR_AMBIENT, 0, 0, color, pMax) == aiReturn_SUCCESS) {
+            return normalizeColor(color);
+        }
+        
+        // Try to get specular color as fallback
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_COLOR_SPECULAR, 0, 0, color, pMax) == aiReturn_SUCCESS) {
+            return normalizeColor(color);
+        }
+        
+        // Default to white if no color found
+        return new float[]{1.0f, 1.0f, 1.0f, 1.0f};
+    }
+    
+    private static float[] normalizeColor(float[] color) {
+        // Ensure minimum brightness and proper alpha
+        float r = Math.max(0.2f, color[0]); // Minimum 20% brightness
+        float g = Math.max(0.2f, color[1]);
+        float b = Math.max(0.2f, color[2]);
+        float a = Math.max(0.8f, color[3]); // Minimum 80% alpha for visibility
+        
+        // If all colors are very dark, brighten them up
+        if (r < 0.3f && g < 0.3f && b < 0.3f) {
+            r = Math.min(1.0f, r * 3.0f); // Brighten by 3x
+            g = Math.min(1.0f, g * 3.0f);
+            b = Math.min(1.0f, b * 3.0f);
+        }
+        
+        return new float[]{r, g, b, a};
+    }
+    
+    private static boolean checkMaterialHasTexture(AIMaterial aiMaterial) {
+        // Check for diffuse texture
+        if (aiGetMaterialTextureCount(aiMaterial, aiTextureType_DIFFUSE) > 0) {
+            return true;
+        }
+        
+        // Check for base color texture (PBR)
+        if (aiGetMaterialTextureCount(aiMaterial, aiTextureType_BASE_COLOR) > 0) {
+            return true;
+        }
+        
+        // Check for other common texture types
+        if (aiGetMaterialTextureCount(aiMaterial, aiTextureType_NORMALS) > 0) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private static float extractMetallicFactor(AIMaterial aiMaterial) {
+        float[] metallic = new float[1];
+        int[] pMax = new int[1];
+        
+        // Try to get metallic factor from PBR properties
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_METALLIC_FACTOR, 0, 0, metallic, pMax) == aiReturn_SUCCESS) {
+            return metallic[0];
+        }
+        
+        // Try to get metallic factor from legacy properties
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_SHININESS, 0, 0, metallic, pMax) == aiReturn_SUCCESS) {
+            // Convert shininess to metallic factor (rough approximation)
+            return metallic[0] > 50.0f ? 1.0f : 0.0f;
+        }
+        
+        return 0.0f; // Default to non-metallic
+    }
+    
+    private static float extractRoughnessFactor(AIMaterial aiMaterial) {
+        float[] roughness = new float[1];
+        int[] pMax = new int[1];
+        
+        // Try to get roughness factor from PBR properties
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_ROUGHNESS_FACTOR, 0, 0, roughness, pMax) == aiReturn_SUCCESS) {
+            return roughness[0];
+        }
+        
+        // Try to get roughness from shininess (inverse relationship)
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_SHININESS, 0, 0, roughness, pMax) == aiReturn_SUCCESS) {
+            // Convert shininess to roughness (rough approximation)
+            return Math.max(0.0f, 1.0f - (roughness[0] / 128.0f));
+        }
+        
+        return 1.0f; // Default to rough
+    }
+    
+    private static float extractAlphaCutoff(AIMaterial aiMaterial) {
+        float[] alphaCutoff = new float[1];
+        int[] pMax = new int[1];
+        
+        // Try to get alpha cutoff
+        if (aiGetMaterialFloatArray(aiMaterial, AI_MATKEY_GLTF_ALPHACUTOFF, 0, 0, alphaCutoff, pMax) == aiReturn_SUCCESS) {
+            return alphaCutoff[0];
+        }
+        
+        return 0.5f; // Default alpha cutoff
     }
     
     private static float[] listToArray(List<Float> list) {
