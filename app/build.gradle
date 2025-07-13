@@ -1,17 +1,19 @@
 plugins {
     id 'java'
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 repositories {
     mavenCentral()
 }
 
-project.ext.lwjglVersion = "3.3.3"
-project.ext.lwjglNatives = "natives-windows"
+ext {
+    lwjglVersion = "3.3.3"
+    lwjglNatives = "natives-windows"
+}
 
 dependencies {
-    // LWJGL core modules
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
     implementation "org.lwjgl:lwjgl"
     implementation "org.lwjgl:lwjgl-assimp"
@@ -19,14 +21,12 @@ dependencies {
     implementation "org.lwjgl:lwjgl-opengl"
     implementation "org.lwjgl:lwjgl-stb"
 
-    // LWJGL native libraries for Windows
     runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-assimp::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
     runtimeOnly "org.lwjgl:lwjgl-stb::$lwjglNatives"
-    
-    // glTF support for GLB models
+
     implementation 'de.javagl:jgltf-model:2.0.3'
     implementation 'de.javagl:jgltf-impl-v2:2.0.3'
 }
@@ -41,25 +41,143 @@ application {
 }
 
 run {
-    // Enable OpenGL debug output
     systemProperty "org.lwjgl.util.Debug", "true"
-    // Enable LWJGL debug mode
     systemProperty "org.lwjgl.util.DebugLoader", "true"
 }
 
-// Task to extract textures from GLB files
-task extractTextures(type: JavaExec) {
+shadowJar {
+    archiveBaseName.set('lwjgl-game')
+    archiveClassifier.set('fat')
+    archiveVersion.set('1.0.0')
+
+    mergeServiceFiles()
+
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/maven/**'
+    exclude 'META-INF/versions/**'
+}
+
+import java.nio.file.Files
+
+tasks.register("downloadPackr") {
+    def buildDirProvider = layout.buildDirectory
+    doLast {
+        def outDir = buildDirProvider.get().asFile
+        def packrFile = new File(outDir, "packr-all-4.0.0.jar")
+        def packrUrl = "https://github.com/libgdx/packr/releases/download/4.0.0/packr-all-4.0.0.jar"
+        if (!packrFile.exists()) {
+            println "Downloading Packr..."
+            packrFile.parentFile.mkdirs()
+            new URL(packrUrl).withInputStream { input ->
+                packrFile.withOutputStream { output -> output << input }
+            }
+            println "✅ Packr downloaded to ${packrFile.absolutePath}"
+        } else {
+            println "✅ Packr already exists at ${packrFile.absolutePath}"
+        }
+    }
+}
+
+tasks.register("downloadJRE") {
+    def buildDirProvider = layout.buildDirectory
+    doLast {
+        def outDir = buildDirProvider.get().asFile
+        def jreFile = new File(outDir, "jre-windows-x64.zip")
+        def jreUrl = "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.21%2B9/OpenJDK11U-jdk_x64_windows_hotspot_11.0.21_9.zip"
+        if (!jreFile.exists()) {
+            println "Downloading JRE..."
+            jreFile.parentFile.mkdirs()
+            new URL(jreUrl).withInputStream { input ->
+                jreFile.withOutputStream { output -> output << input }
+            }
+            println "✅ JRE downloaded to ${jreFile.absolutePath}"
+        } else {
+            println "✅ JRE already exists at ${jreFile.absolutePath}"
+        }
+    }
+}
+
+tasks.register("bundleGame") {
+    dependsOn("shadowJar", "downloadPackr", "downloadJRE")
+
+    doLast {
+        def outDir = layout.buildDirectory.get().asFile
+        def packrJar = new File(outDir, "packr-all-4.0.0.jar")
+        def jreZip = new File(outDir, "jre-windows-x64.zip")
+        def fatJar = new File(outDir, "libs/lwjgl-game-1.0.0-fat.jar")
+        def outputDir = new File(outDir, "bundled-game")
+
+        if (outputDir.exists()) outputDir.deleteDir()
+        Files.createDirectories(outputDir.toPath())
+
+        println "Bundling game with Packr..."
+
+        def config = [
+            platform : "windows64",
+            jdk      : jreZip.absolutePath,
+            executable: "LWJGLGame",
+            classpath: [fatJar.absolutePath],
+            mainclass: "mystuff.game.Game",
+            output   : outputDir.absolutePath,
+            vmargs   : [
+                "-Xmx2G",
+                "-Djava.library.path=natives",
+                "-Dorg.lwjgl.util.Debug=false",
+                "-Dorg.lwjgl.util.DebugLoader=false"
+            ]
+        ]
+
+        def configFile = new File(outDir, "packr-config.json")
+        configFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(config))
+
+        exec {
+            workingDir outDir
+            commandLine 'java', '-jar', packrJar.absolutePath, configFile.absolutePath
+        }
+
+        println "✅ Game bundled successfully to: ${outputDir.absolutePath}"
+    }
+}
+
+tasks.register("createLauncher") {
+    dependsOn("bundleGame")
+
+    doLast {
+        def outDir = layout.buildDirectory.get().asFile
+        def launcherScript = new File(outDir, "bundled-game/run-game.bat")
+        launcherScript.text = """@echo off
+echo Starting LWJGL Game...
+cd /d "%~dp0"
+LWJGLGame.exe
+pause
+"""
+        println "✅ Created launcher script: ${launcherScript.absolutePath}"
+    }
+}
+
+tasks.register("extractTextures", JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'mystuff.utils.GLBTextureExtractor'
-    
-    // Default arguments - can be overridden
-    def glbFile = project.hasProperty('glbFile') ? project.glbFile : 'models/Quequis_House.glb'
-    def outputDir = project.hasProperty('outputDir') ? project.outputDir : 'src/main/resources/textures/extracted'
-    
+
+    def glbFile = project.findProperty("glbFile") ?: "models/Quequis_House.glb"
+    def outputDir = project.findProperty("outputDir") ?: "src/main/resources/textures/extracted"
+
     args = [glbFile, outputDir]
-    
+
     doFirst {
         println "Extracting textures from: $glbFile"
         println "Output directory: $outputDir"
+    }
+}
+
+tasks.register("zipGame", Zip) {
+    dependsOn("createLauncher") // ensures bundle is up to date
+    from("$buildDir/bundled-game")
+    archiveFileName = "LWJGLGame.zip"
+    destinationDirectory.set(file("$buildDir/dist"))
+    doLast {
+        println "📦 Game zipped at: ${destinationDirectory.get().asFile.absolutePath}\\${archiveFileName.get()}"
     }
 }
