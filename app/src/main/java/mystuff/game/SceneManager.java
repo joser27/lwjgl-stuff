@@ -4,6 +4,7 @@ import mystuff.engine.Window;
 import mystuff.utils.DebugRenderer;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
+import mystuff.game.GameState;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,7 @@ public class SceneManager {
     private Scene currentScene = Scene.MENU;
     private Scene previousScene = Scene.MENU;
     private Stack<Scene> sceneStack = new Stack<>();
+    private GameState gameState = GameState.getInstance();
     
     // Scene transition state
     private boolean isTransitioning = false;
@@ -175,7 +177,14 @@ public class SceneManager {
                 selectedMenuItem = 0;
                 break;
             case PLAYING:
-                // Resume game logic
+                // Only reset game state if coming from menu (new game)
+                if (previousScene == Scene.MENU) {
+                    gameState.resetGame();
+                    DebugRenderer.getInstance().addMessage("Starting new game...", 3.0f);
+                } else {
+                    // Just resume from pause, don't reset
+                    DebugRenderer.getInstance().addMessage("Resuming game...", 2.0f);
+                }
                 break;
             case PAUSED:
                 // Pause game logic
@@ -185,6 +194,7 @@ public class SceneManager {
                 break;
             case GAME_OVER:
                 // Handle game over logic
+                gameState.setGameOver(true);
                 break;
             case LOADING:
                 // Start loading process

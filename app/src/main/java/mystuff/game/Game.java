@@ -18,6 +18,7 @@ import mystuff.utils.LightingManager;
  */
 public class Game implements IGameLogic {
     private SceneManager sceneManager = SceneManager.getInstance();
+    private GameState gameState = GameState.getInstance();
     // Core components
     private Camera camera;
     // private World world; // Commented out - no terrain
@@ -34,7 +35,6 @@ public class Game implements IGameLogic {
     // Game state
     private boolean wireframeMode = false;
     private boolean paused = false;
-    private float gameTime = 0;
     
     // Performance metrics
     private float[] cpuUtilizationHistory = new float[60]; // 1 second at 60fps
@@ -246,13 +246,22 @@ public class Game implements IGameLogic {
         // Update scene manager first
         sceneManager.update(interval);
         
+        // Check if we need to reset player for new game
+        if (sceneManager.getCurrentScene() == Scene.PLAYING && gameState.shouldResetPlayer()) {
+            Player player = entityManager.getPlayer();
+            if (player != null) {
+                gameState.resetPlayerPositions(player, camera);
+                DebugRenderer.getInstance().addMessage("Player position reset for new game", 2.0f);
+            }
+        }
+        
         // Only update game logic if we're in the playing scene
         if (sceneManager.getCurrentScene() != Scene.PLAYING) {
             return;
         }
         
         // Update game time
-        gameTime += interval;
+        gameState.updateGameTime(interval);
         
         // Get player position for dynamic chunk loading optimization
         float playerX = camera.getX();
@@ -525,7 +534,7 @@ public class Game implements IGameLogic {
             }
             
             // Game time
-            renderText(String.format("Game Time: %.1fs", gameTime), 10, 130);
+            renderText(String.format("Game Time: %.1fs", gameState.getGameTime()), 10, 130);
             
             // Current scene
             renderText(String.format("Scene: %s", sceneManager.getCurrentScene().getDisplayName()), 10, 150);
