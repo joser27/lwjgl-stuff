@@ -99,6 +99,124 @@ tasks.register("downloadJRE") {
     }
 }
 
+tasks.register("zipGame", Zip) {
+    dependsOn("createLauncher") // ensures bundle is up to date
+    from("$buildDir/bundled-game")
+    archiveFileName = "LWJGLGame.zip"
+    destinationDirectory.set(file("$buildDir/dist"))
+    doLast {
+        println "📦 Game zipped at: ${destinationDirectory.get().asFile.absolutePath}\\${archiveFileName.get()}"
+    }
+}
+
+// Task to create a minimal custom JRE using jlink
+tasks.register("createCustomJRE") {
+    def buildDirProvider = layout.buildDirectory
+    doLast {
+        def outDir = buildDirProvider.get().asFile
+        def customJreDir = new File(outDir, "custom-jre")
+        def jlinkOutput = new File(outDir, "custom-jre")
+        
+        if (jlinkOutput.exists()) {
+            println "✅ Custom JRE already exists at ${jlinkOutput.absolutePath}"
+            return
+        }
+        
+        println "🔧 Creating minimal custom JRE..."
+        
+        // Get Java home from system
+        def javaHome = System.getProperty("java.home")
+        def jlinkPath = new File(javaHome, "bin/jlink.exe")
+        
+        if (!jlinkPath.exists()) {
+            println "❌ jlink not found at ${jlinkPath.absolutePath}"
+            println "Please ensure you're using JDK 11+ and JAVA_HOME is set correctly"
+            println "You can still use the full JRE bundle with: ./gradlew clean bundleGame"
+            throw new GradleException("jlink not available. Use bundleGame for full JRE bundle.")
+        }
+        
+        // Create minimal JRE with only required modules
+        exec {
+            commandLine jlinkPath.absolutePath,
+                '--module-path', "${javaHome}/jmods",
+                '--add-modules', 'java.base,java.desktop,java.logging,java.naming,java.sql,java.xml',
+                '--output', jlinkOutput.absolutePath,
+                '--strip-debug',
+                '--no-header-files',
+                '--no-man-pages',
+                '--compress=2'
+        }
+        
+        println "✅ Custom JRE created at ${jlinkOutput.absolutePath}"
+        println "📊 Size: ${getDirectorySize(jlinkOutput)} MB"
+    }
+}
+
+// Helper function to get directory size in MB
+def getDirectorySize(File dir) {
+    def size = 0
+    dir.eachFileRecurse { file ->
+        if (file.isFile()) {
+            size += file.length()
+        }
+    }
+    return Math.round(size / (1024 * 1024) * 100) / 100
+}
+
+// Updated bundleGame task to use custom JRE
+tasks.register("bundleGameOptimized") {
+    dependsOn("shadowJar", "downloadPackr", "createCustomJRE")
+    def buildDirProvider = layout.buildDirectory
+
+    doLast {
+        def outDir = buildDirProvider.get().asFile
+        def packrJar = new File(outDir, "packr-all-4.0.0.jar")
+        def customJreDir = new File(outDir, "custom-jre")
+        def fatJar = new File(outDir, "libs/lwjgl-game-1.0.0-fat.jar")
+        def outputDir = new File(outDir, "bundled-game-optimized")
+
+        // Check if custom JRE was created successfully
+        if (!customJreDir.exists()) {
+            println "❌ Custom JRE not found. Falling back to full JRE bundle..."
+            println "To use optimized bundle, ensure you have JDK 11+ with jlink available"
+            println "For now, use: ./gradlew clean bundleGame"
+            throw new GradleException("Custom JRE not available. Use bundleGame instead.")
+        }
+
+        if (outputDir.exists()) outputDir.deleteDir()
+        Files.createDirectories(outputDir.toPath())
+
+        println "Bundling game with Packr (optimized JRE)..."
+
+        def config = [
+            platform : "windows64",
+            jdk      : customJreDir.absolutePath,
+            executable: "LWJGLGame",
+            classpath: [fatJar.absolutePath],
+            mainclass: "mystuff.game.Game",
+            output   : outputDir.absolutePath,
+            vmargs   : [
+                "-Xmx2G",
+                "-Djava.library.path=natives",
+                "-Dorg.lwjgl.util.Debug=false",
+                "-Dorg.lwjgl.util.DebugLoader=false"
+            ]
+        ]
+
+        def configFile = new File(outDir, "packr-config-optimized.json")
+        configFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(config))
+
+        exec {
+            workingDir outDir
+            commandLine 'java', '-jar', packrJar.absolutePath, configFile.absolutePath
+        }
+
+        println "✅ Optimized game bundled successfully to: ${outputDir.absolutePath}"
+        println "📊 Bundle size: ${getDirectorySize(outputDir)} MB"
+    }
+}
+
+// Original bundleGame task (using full JRE)
 tasks.register("bundleGame") {
     dependsOn("shadowJar", "downloadPackr", "downloadJRE")
 
@@ -141,6 +259,17 @@ tasks.register("bundleGame") {
     }
 }
 
+// Optimized zip task for the smaller bundle
+tasks.register("zipGameOptimized", Zip) {
+    dependsOn("bundleGameOptimized")
+    from("$buildDir/bundled-game-optimized")
+    archiveFileName = "LWJGLGame-Optimized.zip"
+    destinationDirectory.set(file("$buildDir/dist"))
+    doLast {
+        println "📦 Optimized game zipped at: ${destinationDirectory.get().asFile.absolutePath}\\${archiveFileName.get()}"
+    }
+}
+
 tasks.register("createLauncher") {
     dependsOn("bundleGame")
 
@@ -169,15 +298,5 @@ tasks.register("extractTextures", JavaExec) {
     doFirst {
         println "Extracting textures from: $glbFile"
         println "Output directory: $outputDir"
-    }
-}
-
-tasks.register("zipGame", Zip) {
-    dependsOn("createLauncher") // ensures bundle is up to date
-    from("$buildDir/bundled-game")
-    archiveFileName = "LWJGLGame.zip"
-    destinationDirectory.set(file("$buildDir/dist"))
-    doLast {
-        println "📦 Game zipped at: ${destinationDirectory.get().asFile.absolutePath}\\${archiveFileName.get()}"
     }
 }
