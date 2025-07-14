@@ -234,6 +234,11 @@ public class DebugRenderer {
         renderText(statsText, 10, y, 0.0f, 1.0f, 0.0f);
         y += lineHeight;
         
+        // Performance stats
+        String perfText = collisionManager.getPerformanceStats();
+        renderText(perfText, 10, y, 1.0f, 1.0f, 0.0f);
+        y += lineHeight;
+        
         // Restore OpenGL state
         glMatrixMode(GL_PROJECTION);
         glPopMatrix();

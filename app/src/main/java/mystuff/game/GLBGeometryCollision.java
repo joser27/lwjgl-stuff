@@ -117,15 +117,18 @@ public class GLBGeometryCollision {
             return false;
         }
         
-        // Quick bounds check first
+        // Quick bounds check first - if this fails, no need to check triangles
         if (overallBounds != null && !playerBox.intersects(overallBounds)) {
             return false;
         }
         
-        // Check against individual triangles
+        // Check against individual triangles with early termination
         for (Triangle triangle : collisionTriangles) {
-            if (triangleIntersectsBox(triangle, playerBox)) {
-                return true;
+            // Quick triangle bounds check before detailed intersection test
+            if (triangleBoundsIntersectBox(triangle, playerBox)) {
+                if (triangleIntersectsBox(triangle, playerBox)) {
+                    return true; // Early termination on first collision
+                }
             }
         }
         
@@ -133,21 +136,10 @@ public class GLBGeometryCollision {
     }
     
     /**
-     * Check if a triangle intersects with a bounding box
+     * Quick bounds check for triangle vs box intersection
      */
-    private boolean triangleIntersectsBox(Triangle triangle, BoundingBox box) {
-        // Simple AABB-triangle intersection test
-        // This is a simplified version - for production you'd want more sophisticated collision
-        
-        // Check if any vertex is inside the box
-        if (box.contains(triangle.v1[0], triangle.v1[1], triangle.v1[2]) ||
-            box.contains(triangle.v2[0], triangle.v2[1], triangle.v2[2]) ||
-            box.contains(triangle.v3[0], triangle.v3[1], triangle.v3[2])) {
-            return true;
-        }
-        
-        // Check if triangle edges intersect box faces
-        // (Simplified - just check if triangle bounds overlap box bounds)
+    private boolean triangleBoundsIntersectBox(Triangle triangle, BoundingBox box) {
+        // Calculate triangle bounds
         float minX = Math.min(Math.min(triangle.v1[0], triangle.v2[0]), triangle.v3[0]);
         float maxX = Math.max(Math.max(triangle.v1[0], triangle.v2[0]), triangle.v3[0]);
         float minY = Math.min(Math.min(triangle.v1[1], triangle.v2[1]), triangle.v3[1]);
@@ -155,9 +147,26 @@ public class GLBGeometryCollision {
         float minZ = Math.min(Math.min(triangle.v1[2], triangle.v2[2]), triangle.v3[2]);
         float maxZ = Math.max(Math.max(triangle.v1[2], triangle.v2[2]), triangle.v3[2]);
         
+        // Quick AABB intersection test
         return !(maxX < box.getMinX() || minX > box.getMaxX() ||
                 maxY < box.getMinY() || minY > box.getMaxY() ||
                 maxZ < box.getMinZ() || minZ > box.getMaxZ());
+    }
+    
+    /**
+     * Check if a triangle intersects with a bounding box
+     */
+    private boolean triangleIntersectsBox(Triangle triangle, BoundingBox box) {
+        // Check if any vertex is inside the box (most common case)
+        if (box.contains(triangle.v1[0], triangle.v1[1], triangle.v1[2]) ||
+            box.contains(triangle.v2[0], triangle.v2[1], triangle.v2[2]) ||
+            box.contains(triangle.v3[0], triangle.v3[1], triangle.v3[2])) {
+            return true;
+        }
+        
+        // If no vertices are inside, check if triangle edges intersect box faces
+        // This is a simplified check - for production you'd want more sophisticated collision
+        return triangleBoundsIntersectBox(triangle, box);
     }
     
     /**

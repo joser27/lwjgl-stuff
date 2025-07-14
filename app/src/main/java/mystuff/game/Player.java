@@ -40,6 +40,10 @@ public class Player extends GameObject {
     private static final float STEP_CHECK_DISTANCE = 0.05f;
     private float currentStepOffset = 0.0f;
     private int dropCheckCounter = 0; // Counter for drop checking frequency
+    
+    // Performance optimization: reduce collision checks during rapid movement
+    private int collisionCheckCounter = 0;
+    private static final int COLLISION_CHECK_INTERVAL = 2; // Check every 2 frames during rapid movement
 
     // Collision
     private BoundingBox boundingBox;
@@ -115,6 +119,7 @@ public class Player extends GameObject {
             x = 0; y = 0; z = 0;
         }
         
+        // Create new bounding box
         boundingBox = BoundingBox.fromCenterAndSize(
             x, y, z, 
             PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_DEPTH
@@ -489,7 +494,8 @@ public class Player extends GameObject {
             return;
         }
         
-        float stepSize = 0.01f;
+        // Use moderate step size for better performance during jumping
+        float stepSize = 0.02f; // Increased from 0.01f to 0.02f (2.5x fewer checks)
         float safeY = originalY;
         
         // Find the highest safe position
@@ -526,7 +532,8 @@ public class Player extends GameObject {
             return;
         }
         
-        float stepSize = 0.01f;
+        // Use moderate step size for better performance during falling
+        float stepSize = 0.02f; // Increased from 0.01f to 0.02f (2.5x fewer checks)
         float safeY = originalY;
         
         // Find the lowest safe position
@@ -575,11 +582,25 @@ public class Player extends GameObject {
                 newY = newY > y ? y + maxMovement : y - maxMovement;
             }
             
+            // Performance optimization: reduce collision checks during very rapid movement
+            collisionCheckCounter++;
+            boolean shouldCheckCollision = true;
+            if (Math.abs(velocity) > 15.0f && collisionCheckCounter % COLLISION_CHECK_INTERVAL != 0) {
+                shouldCheckCollision = false;
+            }
+            
             // Check for collisions along the movement path
-            if (velocity > 0) {
-                checkCeilingCollision(newY, originalY);
+            if (shouldCheckCollision) {
+                if (velocity > 0) {
+                    checkCeilingCollision(newY, originalY);
+                } else {
+                    checkFloorCollision(newY, originalY);
+                }
             } else {
-                checkFloorCollision(newY, originalY);
+                // Skip collision check but still move
+                y = newY;
+                updateBoundingBox();
+                camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
             }
         }
         

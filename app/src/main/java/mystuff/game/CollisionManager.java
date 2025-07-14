@@ -17,6 +17,12 @@ public class CollisionManager {
     private float groundLevel = 17.0f;
     private boolean groundCollisionEnabled = true;
     
+    // Performance monitoring
+    private int collisionChecksThisFrame = 0;
+    private int totalCollisionChecks = 0;
+    private long lastPerformanceReset = System.currentTimeMillis();
+    private static final long PERFORMANCE_RESET_INTERVAL = 5000; // Reset every 5 seconds
+    
     private static CollisionManager instance;
     
     private CollisionManager() {
@@ -71,6 +77,10 @@ public class CollisionManager {
      * Check collision with all registered collision systems
      */
     public boolean checkCollision(BoundingBox playerBox) {
+        // Track collision check frequency
+        collisionChecksThisFrame++;
+        totalCollisionChecks++;
+        
         // Check ground collision first
         if (groundCollisionEnabled && checkGroundCollision(playerBox)) {
             return true;
@@ -78,6 +88,28 @@ public class CollisionManager {
         
         // Check geometry collisions
         return checkGeometryCollision(playerBox);
+    }
+    
+    /**
+     * Reset frame collision counter - call this at the end of each frame
+     */
+    public void resetFrameCollisionCount() {
+        // Check if we should reset performance metrics
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPerformanceReset > PERFORMANCE_RESET_INTERVAL) {
+            // Log performance warning if too many collision checks
+            if (collisionChecksThisFrame > 50) {
+                DebugRenderer.getInstance().addError(
+                    "High collision check frequency: " + collisionChecksThisFrame + " checks this frame", 3.0f);
+            }
+            
+            // Reset counters
+            collisionChecksThisFrame = 0;
+            totalCollisionChecks = 0;
+            lastPerformanceReset = currentTime;
+        }
+        
+        collisionChecksThisFrame = 0;
     }
     
     /**
@@ -129,6 +161,14 @@ public class CollisionManager {
         }
         
         return stats.toString();
+    }
+    
+    /**
+     * Get performance statistics for debugging
+     */
+    public String getPerformanceStats() {
+        return String.format("Collision checks: %d/frame, %d total", 
+            collisionChecksThisFrame, totalCollisionChecks);
     }
     
     /**

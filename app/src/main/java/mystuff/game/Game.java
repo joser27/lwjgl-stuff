@@ -287,6 +287,9 @@ public class Game implements IGameLogic {
         
         // Update debug renderer
         DebugRenderer.getInstance().update(interval);
+        
+        // Reset collision performance counter
+        CollisionManager.getInstance().resetFrameCollisionCount();
     }
 
     @Override
