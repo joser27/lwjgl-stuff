@@ -153,6 +153,12 @@ public class Game implements IGameLogic {
             return;
         }
         
+        // Toggle debug mode (F3)
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
+            Debug.toggleDebugMode();
+            Debug.togglePlayerInfo();
+        }
+        
         // Note: Escape key is handled by SceneManager for pause functionality
         
         // Toggle wireframe mode

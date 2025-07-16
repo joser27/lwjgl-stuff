@@ -44,7 +44,7 @@ public class Player extends GameObject {
     // Collision
     private BoundingBox boundingBox;
     private World world; // Reference to world for collision checks
-    private boolean collisionEnabled = true; // Temporary toggle for testing
+    public boolean collisionEnabled = true; // Temporary toggle for testing
     
     // No-clip mode
     private boolean noClipMode = false;
@@ -88,17 +88,12 @@ public class Player extends GameObject {
 
         this.renderer = new PlayerRenderer();
         this.renderer.init();
+        // Actually disable collision for testing
+        this.collisionEnabled = false;
     }
 
     @Override
     public void update(Window window, float deltaTime) {
-        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F3)) {
-            Debug.toggleDebugMode();
-            Debug.togglePlayerInfo();
-        }
-        
-
-        
         handleKeyboardInput(window, deltaTime);
         updateBoundingBox();
         
@@ -558,7 +553,7 @@ public class Player extends GameObject {
     }
     
     private void updateHeightmapCollision(float deltaTime) {
-        if (noClipMode) {
+        if (noClipMode || !collisionEnabled) {
             return;
         }
 
@@ -597,7 +592,7 @@ public class Player extends GameObject {
      * Dedicated ground check method
      */
     private void checkGround() {
-        if (CollisionManager.getInstance() == null) {
+        if (CollisionManager.getInstance() == null || !collisionEnabled) {
             return;
         }
         
