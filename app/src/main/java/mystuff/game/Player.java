@@ -97,6 +97,8 @@ public class Player extends GameObject {
             Debug.togglePlayerInfo();
         }
         
+
+        
         handleKeyboardInput(window, deltaTime);
         updateBoundingBox();
         

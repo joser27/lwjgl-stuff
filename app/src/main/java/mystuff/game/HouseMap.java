@@ -31,8 +31,7 @@ public class HouseMap extends GameObject {
                 DebugRenderer.getInstance().addMessage("  Vertices: " + houseModel.getVertexCount(), 3.0f);
                 float[] bounds = houseModel.getModelBounds();
                 if (bounds != null) {
-                    System.out.printf("  House bounds: X[%.3f, %.3f] Y[%.3f, %.3f] Z[%.3f, %.3f]%n",
-                        bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
+                    // Remove all System.out.printf debug output
                 }
             } else {
                 DebugRenderer.getInstance().addError("Failed to load house GLB model", 5.0f);
@@ -126,6 +125,10 @@ public class HouseMap extends GameObject {
         
         // Geometry-based collision doesn't use bounding boxes for visualization
         // Collision is based on actual triangle geometry
+        // --- DEBUG: Render chunk grid ---
+        if (geometryCollision != null && Debug.isDebugMode()) {
+            geometryCollision.renderChunkGrid();
+        }
     }
     
     private void renderFallbackCube() {

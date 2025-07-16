@@ -116,14 +116,25 @@ public class CollisionManager {
      */
     public String getCollisionStats() {
         int totalTriangles = 0;
+        int totalChecks = 0;
+        int totalTrianglesChecked = 0;
+        int totalTrianglesCulled = 0;
         
         for (GLBGeometryCollision geometryCollision : geometryCollisions) {
             totalTriangles += geometryCollision.getTriangleCount();
+            totalChecks += geometryCollision.getTotalCollisionChecks();
+            totalTrianglesChecked += geometryCollision.getTrianglesChecked();
+            totalTrianglesCulled += geometryCollision.getTrianglesCulled();
         }
         
         StringBuilder stats = new StringBuilder();
         stats.append("CollisionManager: ").append(geometryCollisions.size()).append(" GLB models, ")
              .append(totalTriangles).append(" total triangles");
+        if (totalChecks > 0) {
+            float cullingPercentage = totalTriangles > 0 ? ((totalTriangles - totalTrianglesChecked) * 100.0f / totalTriangles) : 0.0f;
+            stats.append(", ").append(totalChecks).append(" collision checks, ")
+                 .append(String.format("%.1f%%", cullingPercentage)).append(" triangles culled (this frame)");
+        }
         if (groundCollisionEnabled) {
             stats.append(", ground collision at Y=").append(groundLevel);
         }

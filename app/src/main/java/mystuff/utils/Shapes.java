@@ -11,7 +11,6 @@ public class Shapes {
      */
     public static void cube(float size) {
         float halfSize = size / 2;
-        // Front face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfSize, -halfSize, halfSize);
         GL11.glVertex3f(halfSize, -halfSize, halfSize);
@@ -19,7 +18,6 @@ public class Shapes {
         GL11.glVertex3f(-halfSize, halfSize, halfSize);
         GL11.glEnd();
 
-        // Back face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
         GL11.glVertex3f(-halfSize, halfSize, -halfSize);
@@ -27,7 +25,6 @@ public class Shapes {
         GL11.glVertex3f(halfSize, -halfSize, -halfSize);
         GL11.glEnd();
 
-        // Top face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfSize, halfSize, -halfSize);
         GL11.glVertex3f(-halfSize, halfSize, halfSize);
@@ -35,7 +32,6 @@ public class Shapes {
         GL11.glVertex3f(halfSize, halfSize, -halfSize);
         GL11.glEnd();
 
-        // Bottom face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
         GL11.glVertex3f(halfSize, -halfSize, -halfSize);
@@ -43,7 +39,6 @@ public class Shapes {
         GL11.glVertex3f(-halfSize, -halfSize, halfSize);
         GL11.glEnd();
 
-        // Right face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(halfSize, -halfSize, -halfSize);
         GL11.glVertex3f(halfSize, halfSize, -halfSize);
@@ -51,7 +46,6 @@ public class Shapes {
         GL11.glVertex3f(halfSize, -halfSize, halfSize);
         GL11.glEnd();
 
-        // Left face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfSize, -halfSize, -halfSize);
         GL11.glVertex3f(-halfSize, -halfSize, halfSize);
@@ -71,7 +65,6 @@ public class Shapes {
         float halfHeight = height / 2;
         float halfDepth = depth / 2;
         
-        // Front face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
         GL11.glVertex3f(halfWidth, -halfHeight, halfDepth);
@@ -79,7 +72,6 @@ public class Shapes {
         GL11.glVertex3f(-halfWidth, halfHeight, halfDepth);
         GL11.glEnd();
 
-        // Back face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
         GL11.glVertex3f(-halfWidth, halfHeight, -halfDepth);
@@ -87,7 +79,6 @@ public class Shapes {
         GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
         GL11.glEnd();
 
-        // Top face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfWidth, halfHeight, -halfDepth);
         GL11.glVertex3f(-halfWidth, halfHeight, halfDepth);
@@ -95,7 +86,6 @@ public class Shapes {
         GL11.glVertex3f(halfWidth, halfHeight, -halfDepth);
         GL11.glEnd();
 
-        // Bottom face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
         GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
@@ -103,7 +93,6 @@ public class Shapes {
         GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
         GL11.glEnd();
 
-        // Right face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(halfWidth, -halfHeight, -halfDepth);
         GL11.glVertex3f(halfWidth, halfHeight, -halfDepth);
@@ -111,7 +100,6 @@ public class Shapes {
         GL11.glVertex3f(halfWidth, -halfHeight, halfDepth);
         GL11.glEnd();
 
-        // Left face
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-halfWidth, -halfHeight, -halfDepth);
         GL11.glVertex3f(-halfWidth, -halfHeight, halfDepth);
@@ -166,7 +154,6 @@ public class Shapes {
 
         dtheta = 2.0f * (float) Math.PI / slices;
 
-        // Draw the sides
         GL11.glBegin(GL11.GL_QUAD_STRIP);
         for (int i = 0; i <= slices; i++) {
             theta = (i == slices) ? 0.0f : i * dtheta;
@@ -179,7 +166,6 @@ public class Shapes {
         }
         GL11.glEnd();
 
-        // Draw the top circle
         GL11.glBegin(GL11.GL_TRIANGLE_FAN);
         GL11.glNormal3f(0, 0, 1);
         GL11.glVertex3f(0, 0, z1);
@@ -191,7 +177,6 @@ public class Shapes {
         }
         GL11.glEnd();
 
-        // Draw the bottom circle
         GL11.glBegin(GL11.GL_TRIANGLE_FAN);
         GL11.glNormal3f(0, 0, -1);
         GL11.glVertex3f(0, 0, z0);
@@ -213,7 +198,6 @@ public class Shapes {
         float h2 = height / 2;
         float b2 = baseSize;
 
-        // Base
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3f(-b2, -h2, b2);
         GL11.glVertex3f(b2, -h2, b2);
@@ -221,32 +205,54 @@ public class Shapes {
         GL11.glVertex3f(-b2, -h2, -b2);
         GL11.glEnd();
 
-        // Front face
         GL11.glBegin(GL11.GL_TRIANGLES);
         GL11.glVertex3f(0, h2, 0);
         GL11.glVertex3f(-b2, -h2, b2);
         GL11.glVertex3f(b2, -h2, b2);
         GL11.glEnd();
 
-        // Right face
         GL11.glBegin(GL11.GL_TRIANGLES);
         GL11.glVertex3f(0, h2, 0);
         GL11.glVertex3f(b2, -h2, b2);
         GL11.glVertex3f(b2, -h2, -b2);
         GL11.glEnd();
 
-        // Back face
         GL11.glBegin(GL11.GL_TRIANGLES);
         GL11.glVertex3f(0, h2, 0);
         GL11.glVertex3f(b2, -h2, -b2);
         GL11.glVertex3f(-b2, -h2, -b2);
         GL11.glEnd();
 
-        // Left face
         GL11.glBegin(GL11.GL_TRIANGLES);
         GL11.glVertex3f(0, h2, 0);
         GL11.glVertex3f(-b2, -h2, -b2);
         GL11.glVertex3f(-b2, -h2, b2);
+        GL11.glEnd();
+    }
+
+    /**
+     * Draws a wireframe cuboid (box) at the given position with the given size
+     */
+    public static void wireCuboid(float x, float y, float z, float width, float height, float depth) {
+        float minX = x;
+        float minY = y;
+        float minZ = z;
+        float maxX = x + width;
+        float maxY = y + height;
+        float maxZ = z + depth;
+        GL11.glBegin(GL11.GL_LINES);
+        GL11.glVertex3f(minX, minY, minZ); GL11.glVertex3f(maxX, minY, minZ);
+        GL11.glVertex3f(maxX, minY, minZ); GL11.glVertex3f(maxX, minY, maxZ);
+        GL11.glVertex3f(maxX, minY, maxZ); GL11.glVertex3f(minX, minY, maxZ);
+        GL11.glVertex3f(minX, minY, maxZ); GL11.glVertex3f(minX, minY, minZ);
+        GL11.glVertex3f(minX, maxY, minZ); GL11.glVertex3f(maxX, maxY, minZ);
+        GL11.glVertex3f(maxX, maxY, minZ); GL11.glVertex3f(maxX, maxY, maxZ);
+        GL11.glVertex3f(maxX, maxY, maxZ); GL11.glVertex3f(minX, maxY, maxZ);
+        GL11.glVertex3f(minX, maxY, maxZ); GL11.glVertex3f(minX, maxY, minZ);
+        GL11.glVertex3f(minX, minY, minZ); GL11.glVertex3f(minX, maxY, minZ);
+        GL11.glVertex3f(maxX, minY, minZ); GL11.glVertex3f(maxX, maxY, minZ);
+        GL11.glVertex3f(maxX, minY, maxZ); GL11.glVertex3f(maxX, maxY, maxZ);
+        GL11.glVertex3f(minX, minY, maxZ); GL11.glVertex3f(minX, maxY, maxZ);
         GL11.glEnd();
     }
 }
