@@ -81,9 +81,22 @@ public class EntityManager {
      * Render all entities. Call this once per frame.
      */
     public void render() {
+        render(null); // Call the camera-aware version with null camera
+    }
+    
+    /**
+     * Render all entities with camera for culling. Call this once per frame.
+     */
+    public void render(mystuff.engine.Camera camera) {
         for (GameObject entity : entities) {
             if (entity != null) {
-                entity.render();
+                // Check if entity supports camera-based rendering
+                if (entity instanceof HouseMap) {
+                    ((HouseMap) entity).render(camera);
+                } else {
+                    // Fallback to normal rendering for other entities
+                    entity.render();
+                }
             }
         }
     }

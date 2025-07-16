@@ -88,8 +88,7 @@ public class Player extends GameObject {
 
         this.renderer = new PlayerRenderer();
         this.renderer.init();
-        // Actually disable collision for testing
-        this.collisionEnabled = false;
+
     }
 
     @Override
@@ -692,6 +691,50 @@ public class Player extends GameObject {
         return noClipMode;
     }
     
+    /**
+     * Get the player's body position for culling calculations
+     * In no-clip mode, returns the stored body position
+     * In normal mode, returns the current position
+     */
+    public float getBodyX() {
+        if (noClipMode) {
+            return lastNormalX;
+        } else {
+            return x;
+        }
+    }
+    
+    public float getBodyY() {
+        if (noClipMode) {
+            return lastNormalY;
+        } else {
+            return y;
+        }
+    }
+    
+    public float getBodyZ() {
+        if (noClipMode) {
+            return lastNormalZ;
+        } else {
+            return z;
+        }
+    }
+    
+    /**
+     * Get the camera position (for debugging)
+     */
+    public float getCameraX() {
+        return camera.getX();
+    }
+    
+    public float getCameraY() {
+        return camera.getY();
+    }
+    
+    public float getCameraZ() {
+        return camera.getZ();
+    }
+    
     public void setNoClipMode(boolean noClipMode) {
         this.noClipMode = noClipMode;
     }
@@ -711,6 +754,7 @@ public class Player extends GameObject {
             camera.setPosition(noClipCameraX, noClipCameraY, noClipCameraZ);
             
             DebugRenderer.getInstance().addMessage("Entering SPIRIT MODE - Player body stays in place, camera can fly freely", 3.0f);
+            DebugRenderer.getInstance().addMessage("Body position stored at: (" + String.format("%.1f, %.1f, %.1f", lastNormalX, lastNormalY, lastNormalZ) + ")", 3.0f);
         } else if (wasNoClipMode && !noClipMode) {
             camera.setPosition(x, y + (PLAYER_HEIGHT * CAMERA_HEIGHT_OFFSET), z);
             DebugRenderer.getInstance().addMessage("Exiting SPIRIT MODE - Returning to normal gameplay", 3.0f);

@@ -35,6 +35,7 @@ public class Game implements IGameLogic {
     // Game state
     private boolean wireframeMode = false;
     private boolean paused = false;
+    private boolean frustumCullingEnabled = true; // Toggle for testing
     
     // Performance metrics
     private float[] cpuUtilizationHistory = new float[60]; // 1 second at 60fps
@@ -91,7 +92,7 @@ public class Game implements IGameLogic {
             float houseX = 0.0f; // Center the house
             float houseZ = 0.0f; // Center the house
             float houseY = groundLevel; // Use fixed ground level
-            HouseMap house = new HouseMap(houseX, houseY, houseZ);
+            HouseMap house = new HouseMap(houseX, houseY, houseZ, entityManager);
             DebugRenderer.getInstance().addMessage("House created at position: (" + houseX + ", " + houseY + ", " + houseZ + ")", 2.0f);
             entityManager.addEntity(house);
             
@@ -164,6 +165,12 @@ public class Game implements IGameLogic {
         // Toggle wireframe mode
         if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_F)) {
             wireframeMode = !wireframeMode;
+        }
+        
+        // Toggle frustum culling for testing
+        if (KeyboardManager.isKeyJustPressed(GLFW.GLFW_KEY_C)) {
+            frustumCullingEnabled = !frustumCullingEnabled;
+            DebugRenderer.getInstance().addMessage("Frustum culling: " + (frustumCullingEnabled ? "ENABLED" : "DISABLED"), 3.0f);
         }
         
         // Fog type cycling for testing
@@ -377,8 +384,10 @@ public class Game implements IGameLogic {
                 GL11.glTranslatef(-camera.getX(), -camera.getY(), -camera.getZ());
             }
             
-            // Update frustum for culling (DISABLED FOR TESTING)
-            // camera.update();
+            // Update frustum for culling
+            if (frustumCullingEnabled) {
+                camera.update();
+            }
             
             // Enable proper depth testing for all objects
             GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -393,7 +402,7 @@ public class Game implements IGameLogic {
             // world.render(camera);
             
             // Render all entities (player, cat, mage, etc.)
-            entityManager.render();
+            entityManager.render(frustumCullingEnabled ? camera : null);
             
             // Render player with special renderer (for texture mapping)
             if (player != null) {
@@ -558,20 +567,39 @@ public class Game implements IGameLogic {
                 renderText(String.format("Horror Intensity: %.1f", fogRenderer.getCurrentFogType() == FogRenderer.FogType.NONE ? 0.0f : 0.5f), 10, 250);
             }
             
+            // Frustum culling status
+            renderText("Frustum Culling: " + (frustumCullingEnabled ? "ENABLED" : "DISABLED"), 10, 270);
+            renderText("Press C to toggle culling, F3 for debug", 10, 290);
+            
+            // No-clip mode information
+            Player playerForNoClip = entityManager.getPlayer();
+            if (playerForNoClip != null && playerForNoClip.isNoClipMode()) {
+                GL11.glColor3f(1.0f, 0.5f, 0.0f); // Orange for spirit mode
+                renderText("SPIRIT MODE: Culling based on player body position", 10, 330);
+                renderText("Player body at: (" + String.format("%.1f, %.1f, %.1f", 
+                    playerForNoClip.getBodyX(), playerForNoClip.getBodyY(), playerForNoClip.getBodyZ()) + ")", 10, 350);
+                renderText("Camera at: (" + String.format("%.1f, %.1f, %.1f", 
+                    playerForNoClip.getCameraX(), playerForNoClip.getCameraY(), playerForNoClip.getCameraZ()) + ")", 10, 370);
+                GL11.glColor3f(1.0f, 1.0f, 1.0f); // Reset color
+            }
+            
+            // House culling statistics
+            renderText(HouseMap.getCullingStats(), 10, 390);
+            
             // Mage animation info
             Mage currentMage = entityManager.getFirstEntityOfType(Mage.class);
             if (currentMage != null) {
-                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 270);
-                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 290);
-                renderText("Press M to start attack animation", 10, 310);
+                renderText(String.format("Mage Animation: %s", currentMage.isPlaying() ? "Playing" : "Stopped"), 10, 410);
+                renderText(String.format("Frame: %d/%d", currentMage.getCurrentFrame() + 1, currentMage.getTotalFrames()), 10, 430);
+                renderText("Press M to start attack animation", 10, 450);
             }
             
             // Beggar animation info
             Beggar currentBeggar = entityManager.getFirstEntityOfType(Beggar.class);
             if (currentBeggar != null) {
-                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 330);
-                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 350);
-                renderText("Press B to toggle walk animation", 10, 370);
+                renderText(String.format("Beggar Animation: %s", currentBeggar.isWalking() ? "Walking" : "Stopped"), 10, 470);
+                renderText(String.format("Frame: %d/%d", currentBeggar.getCurrentFrame() + 1, currentBeggar.getTotalFrames()), 10, 490);
+                renderText("Press B to toggle walk animation", 10, 510);
             }
         }
         
