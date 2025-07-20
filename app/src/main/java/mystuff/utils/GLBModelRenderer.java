@@ -519,64 +519,55 @@ public class GLBModelRenderer {
      * @param triangleIndices List of triangle indices to render
      * @param lodLevel Level of detail (0 = full detail, 1 = medium, 2 = low)
      */
-    public void renderTriangles(float scale, List<Integer> triangleIndices, int lodLevel) {
-        if (modelData == null || triangleIndices == null || triangleIndices.isEmpty()) {
+    public void renderTriangles(float scale, List<?> chunkTriangles, int lodLevel) {
+        if (modelData == null || chunkTriangles == null || chunkTriangles.isEmpty()) {
             return;
         }
-        
-        // Setup basic OpenGL rendering states
         setupBasicRenderingStates();
-
-        // Set default color to white
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-        
-        // Apply scale transformation
         glPushMatrix();
         glScalef(scale, scale, scale);
-        
-        // Use first material for chunked rendering (simplified)
-        TextureMatcher.MaterialInfo matInfo = (materialInfos != null && materialInfos.length > 0) ? 
-                                            materialInfos[0] : 
-                                            new TextureMatcher.MaterialInfo("textures/missing_texture.jpg");
-        
-        setupMaterialRendering(matInfo, 0);
-        
-        // Calculate step size based on LOD level
-        int stepSize = 1;
-        switch (lodLevel) {
-            case 0: // Full detail
-                stepSize = 1;
-                break;
-            case 1: // Medium detail - render every 2nd triangle
-                stepSize = 2;
-                break;
-            case 2: // Low detail - render every 4th triangle
-                stepSize = 4;
-                break;
-            default:
-                stepSize = 1;
-                break;
-        }
-        
-        glBegin(GL_TRIANGLES);
-        
-        // Render only the specified triangles with LOD
-        for (int i = 0; i < triangleIndices.size(); i += stepSize) {
-            int triangleIndex = triangleIndices.get(i);
-            if (triangleIndex + 2 < modelData.indices.length) {
-                renderTriangle(modelData.indices[triangleIndex], 
-                             modelData.indices[triangleIndex + 1], 
-                             modelData.indices[triangleIndex + 2], matInfo);
+        java.util.Map<Integer, java.util.List<Integer>> trianglesByMaterial = new java.util.HashMap<>();
+        for (Object obj : chunkTriangles) {
+            int triangleIndex, materialIndex;
+            if (obj instanceof mystuff.game.HouseMap.ChunkTriangle) {
+                mystuff.game.HouseMap.ChunkTriangle ct = (mystuff.game.HouseMap.ChunkTriangle) obj;
+                triangleIndex = ct.triangleIndex;
+                materialIndex = ct.materialIndex;
+            } else if (obj instanceof Integer) {
+                triangleIndex = (Integer) obj;
+                materialIndex = 0;
+            } else {
+                continue;
             }
+            trianglesByMaterial.computeIfAbsent(materialIndex, k -> new java.util.ArrayList<>()).add(triangleIndex);
         }
-        
-        glEnd();
-        
-        cleanupMaterialRendering(matInfo);
-        
+        for (java.util.Map.Entry<Integer, java.util.List<Integer>> entry : trianglesByMaterial.entrySet()) {
+            int materialIndex = entry.getKey();
+            java.util.List<Integer> tris = entry.getValue();
+            TextureMatcher.MaterialInfo matInfo = getMaterialInfoForMesh(materialIndex);
+            setupMaterialRendering(matInfo, materialIndex);
+            glBegin(GL_TRIANGLES);
+            int stepSize = 1;
+            switch (lodLevel) {
+                case 0: stepSize = 1; break;
+                case 1: stepSize = 2; break;
+                case 2: stepSize = 4; break;
+                default: stepSize = 1; break;
+            }
+            for (int i = 0; i < tris.size(); i += stepSize) {
+                int triangleIndex = tris.get(i);
+                if (triangleIndex + 2 < modelData.indices.length) {
+                    renderTriangle(modelData.indices[triangleIndex],
+                                   modelData.indices[triangleIndex + 1],
+                                   modelData.indices[triangleIndex + 2],
+                                   matInfo);
+                }
+            }
+            glEnd();
+            cleanupMaterialRendering(matInfo);
+        }
         glPopMatrix();
-        
-        // Cleanup OpenGL states
         cleanupRenderingStates();
     }
     

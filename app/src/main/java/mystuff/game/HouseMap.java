@@ -103,13 +103,20 @@ public class HouseMap extends GameObject {
     /**
      * Represents a renderable chunk of the GLB model
      */
+    public static class ChunkTriangle {
+        public final int triangleIndex;
+        public final int materialIndex;
+        public ChunkTriangle(int triangleIndex, int materialIndex) {
+            this.triangleIndex = triangleIndex;
+            this.materialIndex = materialIndex;
+        }
+    }
     private static class RenderChunk {
         public final long chunkKey;
         public final int chunkX, chunkY, chunkZ;
         public final float minX, minY, minZ, maxX, maxY, maxZ;
-        public final List<Integer> triangleIndices; // Indices of triangles in this chunk
+        public final List<ChunkTriangle> triangles; // List of triangle index + material index
         public final BoundingBox bounds;
-        
         public RenderChunk(long chunkKey, int chunkX, int chunkY, int chunkZ, 
                           float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
             this.chunkKey = chunkKey;
@@ -122,20 +129,17 @@ public class HouseMap extends GameObject {
             this.maxX = maxX;
             this.maxY = maxY;
             this.maxZ = maxZ;
-            this.triangleIndices = new ArrayList<>();
+            this.triangles = new ArrayList<>();
             this.bounds = new BoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
         }
-        
-        public void addTriangle(int triangleIndex) {
-            triangleIndices.add(triangleIndex);
+        public void addTriangle(int triangleIndex, int materialIndex) {
+            triangles.add(new ChunkTriangle(triangleIndex, materialIndex));
         }
-        
         public boolean isEmpty() {
-            return triangleIndices.isEmpty();
+            return triangles.isEmpty();
         }
-        
         public int getTriangleCount() {
-            return triangleIndices.size();
+            return triangles.size();
         }
     }
     
@@ -281,7 +285,7 @@ public class HouseMap extends GameObject {
                         float[] v3 = transformVertex(vertices, idx3);
                         
                         // Find which chunks this triangle belongs to
-                        assignTriangleToChunks(i, v1, v2, v3);
+                        assignTriangleToChunks(i, mesh.materialIndex, v1, v2, v3);
                         assignedTriangles++;
                     }
                 }
@@ -307,22 +311,22 @@ public class HouseMap extends GameObject {
     /**
      * Assign a triangle to all chunks it intersects with
      */
-    private void assignTriangleToChunks(int triangleIndex, float[] v1, float[] v2, float[] v3) {
-        // Calculate triangle bounds
-        float minX = Math.min(Math.min(v1[0], v2[0]), v3[0]);
-        float maxX = Math.max(Math.max(v1[0], v2[0]), v3[0]);
-        float minY = Math.min(Math.min(v1[1], v2[1]), v3[1]);
-        float maxY = Math.max(Math.max(v1[1], v2[1]), v3[1]);
-        float minZ = Math.min(Math.min(v1[2], v2[2]), v3[2]);
-        float maxZ = Math.max(Math.max(v1[2], v2[2]), v3[2]);
-        
-        // Find which chunks this triangle intersects
+    private void assignTriangleToChunks(int triangleIndex, int materialIndex, float[] v1, float[] v2, float[] v3) {
+        // Compute AABB for the triangle
+        float minX = Math.min(v1[0], Math.min(v2[0], v3[0]));
+        float maxX = Math.max(v1[0], Math.max(v2[0], v3[0]));
+        float minY = Math.min(v1[1], Math.min(v2[1], v3[1]));
+        float maxY = Math.max(v1[1], Math.max(v2[1], v3[1]));
+        float minZ = Math.min(v1[2], Math.min(v2[2], v3[2]));
+        float maxZ = Math.max(v1[2], Math.max(v2[2], v3[2]));
+        // Find all chunks this triangle overlaps
         for (RenderChunk chunk : renderChunks.values()) {
-            if (chunk.minX <= maxX && chunk.maxX >= minX &&
-                chunk.minY <= maxY && chunk.maxY >= minY &&
-                chunk.minZ <= maxZ && chunk.maxZ >= minZ) {
-                chunk.addTriangle(triangleIndex);
+            if (chunk.maxX < minX || chunk.minX > maxX ||
+                chunk.maxY < minY || chunk.minY > maxY ||
+                chunk.maxZ < minZ || chunk.minZ > maxZ) {
+                continue;
             }
+            chunk.addTriangle(triangleIndex, materialIndex);
         }
     }
     
@@ -802,8 +806,7 @@ public class HouseMap extends GameObject {
      * Render a single chunk
      */
     private void renderChunk(RenderChunk chunk, int lodLevel) {
-        // Render only the triangles in this chunk
-        houseModel.renderTriangles(HOUSE_SCALE, chunk.triangleIndices, lodLevel);
+        houseModel.renderTriangles(HOUSE_SCALE, chunk.triangles, lodLevel);
     }
     
     /**
