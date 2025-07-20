@@ -564,57 +564,60 @@ public class HouseMap extends GameObject {
      * Render the house with camera for culling checks
      */
     public void render(mystuff.engine.Camera camera) {
-        totalRenderCalls++;
-        
-        // Frustum culling check for overall house bounds
-        if (!isInFrustum(camera)) {
-            frustumCulledCount++;
-            if (Debug.isDebugMode()) {
-                DebugRenderer.getInstance().addMessage("House culled by frustum", 0.1f);
-            }
-            return;
-        }
-        
-        // Distance culling check for overall house bounds
-        if (!isWithinRenderDistance(camera)) {
-            distanceCulledCount++;
-            if (Debug.isDebugMode()) {
-                DebugRenderer.getInstance().addMessage("House culled by distance", 0.1f);
-            }
-            return;
-        }
-        
-        actualRenders++;
-        
-        // Get LOD level for performance optimization
-        int lodLevel = getLODLevel(camera);
-        
-        if (houseModel != null && houseModel.isLoaded() && chunksInitialized) {
-            // Render using chunked system
-            renderChunked(camera, lodLevel);
-        } else if (houseModel != null && houseModel.isLoaded()) {
-            // Fallback to non-chunked rendering
-            renderNonChunked(lodLevel);
+        // Make sure camera frustum is up to date (should be called in World.java, but safe to call here)
+        if (camera != null) camera.update();
+
+        // Get camera/player position for culling
+        float cullingX, cullingY, cullingZ;
+        Player player = getPlayer();
+        if (player != null && player.isNoClipMode()) {
+            cullingX = player.getBodyX();
+            cullingY = player.getBodyY();
+            cullingZ = player.getBodyZ();
+        } else if (camera != null) {
+            cullingX = camera.getX();
+            cullingY = camera.getY();
+            cullingZ = camera.getZ();
         } else {
-            // Fallback rendering if model fails to load
-            renderFallbackCube();
+            // No camera, nothing to render
+            return;
         }
-        
-        // Geometry-based collision doesn't use bounding boxes for visualization
-        // Collision is based on actual triangle geometry
-        // --- DEBUG: Render chunk grid ---
-        if (geometryCollision != null && Debug.isDebugMode()) {
-            geometryCollision.renderChunkGrid();
-        }
-        
-        // Debug: Render bounding box when in debug mode
-        if (Debug.isDebugMode() && boundingBoxCalculated) {
-            renderBoundingBox();
-        }
-        
-        // Debug: Render chunk bounds when in debug mode
-        if (Debug.isDebugMode() && chunksInitialized) {
-            renderChunkBounds();
+
+        // Only render if model is loaded and chunks are initialized
+        if (houseModel != null && houseModel.isLoaded() && chunksInitialized) {
+            GL11.glPushMatrix();
+            GL11.glTranslatef(getX(), getY(), getZ());
+            // No rotation for now
+
+            int chunksRendered = 0;
+            final float CHUNK_RENDER_DISTANCE = 60.0f;
+            for (RenderChunk chunk : renderChunks.values()) {
+                // Per-chunk distance culling (no LOD)
+                float centerX = (chunk.minX + chunk.maxX) / 2.0f;
+                float centerY = (chunk.minY + chunk.maxY) / 2.0f;
+                float centerZ = (chunk.minZ + chunk.maxZ) / 2.0f;
+                float dx = cullingX - centerX;
+                float dy = cullingY - centerY;
+                float dz = cullingZ - centerZ;
+                float distanceSquared = dx*dx + dy*dy + dz*dz;
+                if (distanceSquared > CHUNK_RENDER_DISTANCE * CHUNK_RENDER_DISTANCE) continue;
+
+                // Per-chunk frustum culling
+                float width = chunk.maxX - chunk.minX;
+                float height = chunk.maxY - chunk.minY;
+                float depth = chunk.maxZ - chunk.minZ;
+                if (!camera.isBoxInView(centerX, centerY, centerZ, width, height, depth)) continue;
+
+                // Render the chunk in full detail (LOD 0)
+                houseModel.renderTriangles(HOUSE_SCALE, chunk.triangles, 0);
+                chunksRendered++;
+            }
+            GL11.glPopMatrix();
+
+            // Debug: visualize chunk bounds if in debug mode
+            if (Debug.isDebugMode()) {
+                renderChunkBounds(camera);
+            }
         }
     }
     
@@ -854,51 +857,79 @@ public class HouseMap extends GameObject {
     /**
      * Render chunk bounds for debugging
      */
-    private void renderChunkBounds() {
+    private void renderChunkBounds(mystuff.engine.Camera camera) {
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_LINE_BIT | GL11.GL_COLOR_BUFFER_BIT);
         GL11.glDisable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glLineWidth(1.0f);
-        
+
+        // Get camera/player position for culling and LOD (same as render)
+        float cullingX, cullingY, cullingZ;
+        Player player = getPlayer();
+        if (player != null && player.isNoClipMode()) {
+            cullingX = player.getBodyX();
+            cullingY = player.getBodyY();
+            cullingZ = player.getBodyZ();
+        } else {
+            cullingX = getX();
+            cullingY = getY();
+            cullingZ = getZ();
+        }
+
+        final float CHUNK_RENDER_DISTANCE = 120.0f;
+
         for (RenderChunk chunk : renderChunks.values()) {
-            // Color based on chunk distance from camera
             float centerX = (chunk.minX + chunk.maxX) / 2.0f;
             float centerY = (chunk.minY + chunk.maxY) / 2.0f;
             float centerZ = (chunk.minZ + chunk.maxZ) / 2.0f;
-            
-            float dx = centerX - getX();
-            float dy = centerY - getY();
-            float dz = centerZ - getZ();
-            float distance = (float) Math.sqrt(dx*dx + dy*dy + dz*dz);
-            
-            // Color gradient: red (close) to blue (far)
-            float normalizedDistance = Math.min(1.0f, distance / 100.0f);
-            GL11.glColor3f(normalizedDistance, 0.0f, 1.0f - normalizedDistance);
-            
+            float dx = cullingX - centerX;
+            float dy = cullingY - centerY;
+            float dz = cullingZ - centerZ;
+            float distanceSquared = dx*dx + dy*dy + dz*dz;
+            boolean inRange = distanceSquared <= CHUNK_RENDER_DISTANCE * CHUNK_RENDER_DISTANCE;
+
+            boolean wouldRender = false;
+            if (inRange && camera != null) {
+                float width = chunk.maxX - chunk.minX;
+                float height = chunk.maxY - chunk.minY;
+                float depth = chunk.maxZ - chunk.minZ;
+                wouldRender = camera.isBoxInView(centerX, centerY, centerZ, width, height, depth);
+            }
+
+            // Color logic:
+            // - Green: rendered (in range, in frustum)
+            // - Red: in range, not rendered (culled by frustum)
+            // - Blue: out of range
+            if (!inRange) {
+                GL11.glColor3f(0.2f, 0.2f, 1.0f); // Blue
+                GL11.glLineWidth(1.0f);
+            } else if (wouldRender) {
+                GL11.glColor3f(0.1f, 1.0f, 0.1f); // Green
+                GL11.glLineWidth(2.5f);
+            } else {
+                GL11.glColor3f(1.0f, 0.1f, 0.1f); // Red
+                GL11.glLineWidth(1.0f);
+            }
+
             // Draw wireframe box for this chunk
             GL11.glBegin(GL11.GL_LINES);
-            
             // Bottom face
             GL11.glVertex3f(chunk.minX, chunk.minY, chunk.minZ); GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.minZ);
             GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.minZ); GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.maxZ);
             GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.maxZ); GL11.glVertex3f(chunk.minX, chunk.minY, chunk.maxZ);
             GL11.glVertex3f(chunk.minX, chunk.minY, chunk.maxZ); GL11.glVertex3f(chunk.minX, chunk.minY, chunk.minZ);
-            
             // Top face
             GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.minZ); GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.minZ);
             GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.minZ); GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.maxZ);
             GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.maxZ); GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.maxZ);
             GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.maxZ); GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.minZ);
-            
             // Vertical edges
             GL11.glVertex3f(chunk.minX, chunk.minY, chunk.minZ); GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.minZ);
             GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.minZ); GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.minZ);
             GL11.glVertex3f(chunk.maxX, chunk.minY, chunk.maxZ); GL11.glVertex3f(chunk.maxX, chunk.maxY, chunk.maxZ);
             GL11.glVertex3f(chunk.minX, chunk.minY, chunk.maxZ); GL11.glVertex3f(chunk.minX, chunk.maxY, chunk.maxZ);
-            
             GL11.glEnd();
         }
-        
+
         GL11.glPopAttrib();
     }
     
